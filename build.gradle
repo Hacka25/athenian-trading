@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'maven'  // Required for jitpack.io to do a ./gradlew install
+    id 'org.jetbrains.kotlin.jvm' version '1.4.10'
+    id "com.github.ben-manes.versions" version '0.33.0'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+}
+
+repositories {
+    maven { url 'https://kotlin.bintray.com/ktor' }
+    maven { url 'https://kotlin.bintray.com/kotlinx' }
+    maven { url 'https://kotlin.bintray.com/kotlin-js-wrappers' }
+    maven { url 'https://maven-central.storage-download.googleapis.com/repos/central/data/' }
+    jcenter()
+    maven { url = 'https://jitpack.io' }
+}
+
+// These are for the uber target
+def mainName = "io.ktor.server.cio.EngineMain"
+def appName = 'server'
+
+// This is for ./gradlew run
+application {
+    mainClassName = mainName
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+description = 'Athenian Trading'
+group 'com.github.pambrose'
+version '0.0.1'
+
+sourceSets {
+    main.kotlin.srcDirs = main.java.srcDirs = ['src']
+    test.kotlin.srcDirs = test.java.srcDirs = ['test']
+    main.resources.srcDirs = ['resources']
+    test.resources.srcDirs = ['testresources']
+}
+
+repositories {
+    mavenLocal()
+    jcenter()
+    maven { url 'https://kotlin.bintray.com/ktor' }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+
+    implementation "io.ktor:ktor-server-cio:$ktor_version"
+    implementation "io.ktor:ktor-server-core:$ktor_version"
+
+    implementation "io.ktor:ktor-server-sessions:$ktor_version"
+    implementation "io.ktor:ktor-html-builder:$ktor_version"
+    implementation "io.ktor:ktor-locations:$ktor_version"
+    implementation "io.ktor:ktor-metrics:$ktor_version"
+
+    implementation "com.google.api-client:google-api-client:$api_client_version"
+    implementation "com.google.oauth-client:google-oauth-client-jetty:$client_jetty_version"
+    implementation "com.google.apis:google-api-services-sheets:$services_sheets_version"
+
+    implementation "ch.qos.logback:logback-classic:$logback_version"
+
+    testImplementation "io.ktor:ktor-server-tests:$ktor_version"
+}
