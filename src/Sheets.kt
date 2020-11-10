@@ -7,7 +7,6 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.JsonFactory
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.sheets.v4.Sheets
@@ -25,18 +24,18 @@ import java.time.temporal.ChronoUnit
 
 object Sheets {
     private const val APPLICATION_NAME = "Athenian Trading App"
-    private val JSON_FACTORY: JsonFactory = JacksonFactory.getDefaultInstance()
+    internal const val CREDENTIALS_FILE_PATH = "/credentials.json"
+    internal const val CREDENTIALS2_FILE_PATH = "/credentials2.json"
     private const val TOKENS_DIRECTORY_PATH = "tokens"
+    internal val JSON_FACTORY = JacksonFactory.getDefaultInstance()
     private val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
     private val SCOPES = listOf(SheetsScopes.SPREADSHEETS)
-    private const val CREDENTIALS_FILE_PATH = "/credentials.json"
     private const val ssId = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
 
     private fun getCredentials(): Credential {
         val inStream = Sheets::class.java.getResourceAsStream(CREDENTIALS_FILE_PATH)
             ?: throw FileNotFoundException("Resource not found: $CREDENTIALS_FILE_PATH")
         val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(inStream))
-
         val flow =
             GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
                 .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))

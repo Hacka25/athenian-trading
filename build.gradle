@@ -2,8 +2,8 @@ plugins {
     id 'java'
     id 'application'
     id 'maven'  // Required for jitpack.io to do a ./gradlew install
-    id 'org.jetbrains.kotlin.jvm' version '1.4.10'
-    id "com.github.ben-manes.versions" version '0.33.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.20-RC'
+    id "com.github.ben-manes.versions" version '0.35.0'
     id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
@@ -60,7 +60,40 @@ dependencies {
     implementation "com.google.oauth-client:google-oauth-client-jetty:$client_jetty_version"
     implementation "com.google.apis:google-api-services-sheets:$services_sheets_version"
 
+    implementation "com.github.pambrose.common-utils:ktor-server-utils:$utils_version"
+
     implementation "ch.qos.logback:logback-classic:$logback_version"
 
     testImplementation "io.ktor:ktor-server-tests:$ktor_version"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = '1.8'
+    kotlinOptions.freeCompilerArgs += ['-Xuse-experimental=kotlin.time.ExperimentalTime',
+                                       '-Xuse-experimental=io.ktor.util.KtorExperimentalAPI',
+                                       '-Xuse-experimental=io.ktor.locations.KtorExperimentalLocationsAPI',
+                                       '-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi',
+                                       '-Xuse-experimental=kotlin.ExperimentalStdlibApi',
+                                       '-Xuse-experimental=kotlin.contracts.ExperimentalContracts',
+                                       '-XXLanguage:+InlineClasses']
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = '1.8'
+    kotlinOptions.freeCompilerArgs += ['-Xuse-experimental=kotlin.time.ExperimentalTime',
+                                       '-Xuse-experimental=io.ktor.util.KtorExperimentalAPI',
+                                       '-Xuse-experimental=io.ktor.locations.KtorExperimentalLocationsAPI',
+                                       '-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi',
+                                       '-Xuse-experimental=kotlin.ExperimentalStdlibApi',
+                                       '-XXLanguage:+InlineClasses']
+}
+
+test {
+    useJUnitPlatform()
+
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        exceptionFormat "full"
+        showStandardStreams = true
+    }
 }
