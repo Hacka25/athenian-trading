@@ -1,12 +1,14 @@
 package com.github.pambrose
 
-import Sheets.CREDENTIALS2_FILE_PATH
+import TradingSheet
+import TradingSheet.Companion.ssId
 import com.github.pambrose.common.response.respondWith
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.html.*
@@ -15,14 +17,15 @@ import io.ktor.routing.*
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import org.slf4j.event.Level
-import java.io.FileNotFoundException
-import java.io.InputStreamReader
+import java.io.StringReader
 import java.security.InvalidParameterException
 
 fun main(args: Array<String>): Unit = io.ktor.server.cio.EngineMain.main(args)
 
+var credential: GoogleCredential? = null
+
 @Suppress("unused") // Referenced in application.conf
-@kotlin.jvm.JvmOverloads
+@JvmOverloads
 fun Application.module(testing: Boolean = false) {
     install(CallLogging) {
         level = Level.INFO
@@ -30,6 +33,7 @@ fun Application.module(testing: Boolean = false) {
     }
 
     val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef"
+
     routing {
         get("/test") {
             call.respondHtml {
@@ -39,6 +43,22 @@ fun Application.module(testing: Boolean = false) {
             }
 
         }
+
+        get("/calc") {
+            try {
+                val tradingSheet = TradingSheet(ssId, credential!!)
+                println(tradingSheet.users)
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
+
+            call.respondHtml {
+                body {
+                    +"Got it"
+                }
+            }
+        }
+
         get("/auth") {
             respondWith {
                 createHTML()
@@ -61,7 +81,7 @@ fun Application.module(testing: Boolean = false) {
                                         auth2 = gapi.auth2.init({
                                             client_id: '$CLIENT_ID.apps.googleusercontent.com',
                                             // Scopes to request in addition to 'profile' and 'email'
-                                            //scope: 'additional_scope'
+                                            scope: '${SheetsScopes.SPREADSHEETS}'
                                         });
                                      });
                                    }
@@ -81,9 +101,8 @@ fun Application.module(testing: Boolean = false) {
 
                                     function signInCallback(authResult) {
                                       if (authResult['code']) {
-                                    
                                         // Hide the sign-in button now that the user is authorized, for example:
-                                        ${'$'}('#signinButton').attr('style', 'display: none');
+                                        //${'$'}('#signinButton').attr('style', 'display: none');
                                     
                                         // Send the code to the server
                                         ${'$'}.ajax({
@@ -119,26 +138,8 @@ fun Application.module(testing: Boolean = false) {
 
             println("authCode = $authCode")
 
-            // Set path to the Web application client_secret_*.json file you downloaded from the
-            // Google API Console: https://console.developers.google.com/apis/credentials
-            // You can also find your Web application client ID and client secret from the
-            // console and specify them directly when you create the GoogleAuthorizationCodeTokenRequest
-            // object.
-
-            // Set path to the Web application client_secret_*.json file you downloaded from the
-            // Google API Console: https://console.developers.google.com/apis/credentials
-            // You can also find your Web application client ID and client secret from the
-            // console and specify them directly when you create the GoogleAuthorizationCodeTokenRequest
-            // object.
-
-            // Exchange auth code for access token
-            val inStream = Application::class.java.getResourceAsStream(CREDENTIALS2_FILE_PATH)
-                ?: throw FileNotFoundException("Resource not found: $CREDENTIALS2_FILE_PATH")
-            val clientSecrets =
-                GoogleClientSecrets.load(JacksonFactory.getDefaultInstance(), InputStreamReader(inStream))
-
-            println("clientId: ${clientSecrets.details.clientId}")
-            println("clientSecret: ${clientSecrets.details.clientSecret}")
+            val strReader = StringReader(System.getenv("AUTH_CREDENTIALS"))
+            val clientSecrets = GoogleClientSecrets.load(JacksonFactory.getDefaultInstance(), strReader)
 
             try {
                 val tokenResponse =
@@ -158,25 +159,12 @@ fun Application.module(testing: Boolean = false) {
                 val accessToken = tokenResponse.accessToken
 
                 // Use access token to call API
-                val credential = GoogleCredential().setAccessToken(accessToken)
-                /*
-            val drive = Drive.Builder(NetHttpTransport(), JSON_FACTORY, credential)
-                .setApplicationName("Auth Code Exchange Demo")
-                .build()
-            val file: File = drive.files().get("appfolder").execute()
-            */
+                credential = GoogleCredential().setAccessToken(accessToken)
 
                 // Get profile info from ID token
                 val idToken = tokenResponse.parseIdToken()
                 val payload = idToken.payload
                 val userId = payload.subject // Use this value as a key to identify a user.
-                val email = payload.email
-                val emailVerified = java.lang.Boolean.valueOf(payload.emailVerified)
-                val name = payload["name"] as String?
-                val pictureUrl = payload["picture"] as String?
-                val locale = payload["locale"] as String?
-                val familyName = payload["family_name"] as String?
-                val givenName = payload["given_name"] as String?
 
                 println("payload = $payload")
             } catch (e: Throwable) {
