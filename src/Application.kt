@@ -7,9 +7,10 @@ import com.github.pambrose.common.response.respondWith
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
+import io.ktor.application.Application
 import io.ktor.features.*
 import io.ktor.html.*
-import io.ktor.http.*
+import io.ktor.http.ContentType.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
@@ -26,11 +27,17 @@ fun main(args: Array<String>): Unit = io.ktor.server.cio.EngineMain.main(args)
 
 const val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef"
 
+const val USERS = "/users"
+const val ITEMS = "/items"
+const val ALLOCATIONS = "/allocations"
 const val ADD_TXN = "/add"
 const val CLEAR_TXNS = "/clear"
+const val CALC = "/calc"
+const val AUTH = "/auth"
 
 var credential: GoogleCredential? = null
 
+typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
 
 @Suppress("unused") // Referenced in application.conf
 @JvmOverloads
@@ -47,28 +54,21 @@ fun Application.module(testing: Boolean = false) {
     }
 
     fun BODY.choices() {
+        h1 { +"Athenian Trading App" }
         ul {
-            li { a { href = "/auth"; +"Auth" } }
+            li { a { href = AUTH; +"Auth" } }
             if (credential != null) {
-                li { a { href = "/users"; +"Users" } }
-                li { a { href = "/items"; +"Goods and services" } }
+                li { a { href = USERS; +"Users" } }
+                li { a { href = ITEMS; +"Goods and services" } }
+                li { a { href = ALLOCATIONS; +"Allocations" } }
                 li { a { href = ADD_TXN; +"Add random transaction" } }
                 li { a { href = CLEAR_TXNS; +"Clear transactions" } }
-                li { a { href = "/calc"; +"Calculate balances" } }
+                li { a { href = CALC; +"Calculate balances" } }
             }
         }
     }
 
-    fun Routing.results(block: BODY.() -> Unit) =
-        createHTML()
-            .html {
-                body {
-                    choices()
-                    block()
-                }
-            }
-
-    fun Routing.stackTrace(e: Throwable) =
+    fun stackTrace(e: Throwable) =
         createHTML()
             .html {
                 body {
@@ -80,84 +80,126 @@ fun Application.module(testing: Boolean = false) {
                 }
             }
 
+    suspend fun PipelineCall.results(block: BODY.() -> Unit) {
+        val s = try {
+            createHTML()
+                .html {
+                    body {
+                        choices()
+                        block()
+                    }
+                }
+        } catch (e: Throwable) {
+            stackTrace(e)
+        }
+
+        call.respondText(s, Text.Html)
+    }
+
+
     fun tradingSheet() = TradingSheet(ssId, credential ?: throw IllegalArgumentException("No credentials"))
 
 
     routing {
         get("/") {
-            call.respondHtml {
-                body {
-                    choices()
-                }
-            }
+            call.respondHtml { body { choices() } }
         }
 
         get(ADD_TXN) {
-            call.respondText(
-                try {
-                    this@routing.results {
-                        h2 { +"Random transaction added" }
-                        tradingSheet().addItems()
-                            .apply {
-                                div { +first }
-                                pre { +second.toString() }
-                            }
+            results {
+                h2 { +"Random transaction added" }
+                tradingSheet().addItems()
+                    .apply {
+                        div { +first }
+                        pre { +second.toString() }
                     }
-                } catch (e: Throwable) {
-                    this@routing.stackTrace(e)
-                },
-                ContentType.Text.Html
-            )
+            }
         }
 
         get(CLEAR_TXNS) {
-            call.respondText(
-                try {
-                    this@routing.results {
-                        h2 { +"Transactions cleared" }
-                        tradingSheet().clearTransactions()
-                            .also {
-                                pre { +it.toString() }
-                            }
+            results {
+                h2 { +"Transactions cleared" }
+                tradingSheet().clearTransactions()
+                    .also {
+                        pre { +it.toString() }
                     }
-                } catch (e: Throwable) {
-                    this@routing.stackTrace(e)
-                },
-                ContentType.Text.Html
-            )
-        }
-
-        get("/users") {
-            try {
-                println(tradingSheet().users)
-            } catch (e: Throwable) {
-                e.printStackTrace()
-            }
-
-            call.respondHtml {
-                body {
-                    choices()
-                    +"Users"
-                }
             }
         }
 
-        get("/calc") {
-            try {
-                val map = tradingSheet().calcUserSummary()
-            } catch (e: Throwable) {
-                e.printStackTrace()
-            }
-
-            call.respondHtml {
-                body {
-                    choices()
-                    +"Calculated"
-                }
+        get(USERS) {
+            results {
+                h2 { +"Users" }
+                tradingSheet().users
+                    .also { users ->
+                        table {
+                            users.forEach { tr { td { +it.name } } }
+                        }
+                    }
             }
         }
 
-        get("/auth") {
+        get(ITEMS) {
+            results {
+                h2 { +"Goods and services" }
+                tradingSheet().items
+                    .also { items ->
+                        table {
+                            items.forEach { tr { td { +it.desc } } }
+                        }
+                    }
+            }
+        }
+
+        get(ALLOCATIONS) {
+            results {
+                h2 { +"Allocations" }
+                tradingSheet().allocations
+                    .also { items ->
+                        table {
+                            items.forEach {
+                                tr {
+                                    td {
+                                        style = "padding-right:5;";
+                                        b { +it.user.name }
+                                    }
+                                    td { +"${it.itemAmount.amount} ${it.itemAmount.item.desc}" }
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+
+        get(CALC) {
+            results {
+                h2 { +"Balances" }
+                tradingSheet().calcUserSummary()
+                    .also { elems ->
+                        table {
+                            elems.forEach { row ->
+                                val nameList = mutableListOf<String>()
+                                row.value.sortedWith(compareBy({ it.item.desc }))
+                                    .forEach {
+                                        tr {
+                                            td {
+                                                style = "padding-right:5;";
+                                                b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
+                                            }
+                                            td { +"${it.amount} ${it.item.desc}" }
+                                        }
+                                        nameList += row.key.name
+                                    }
+                                tr {
+                                    td {}
+                                    td {}
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+
+        get(AUTH) {
             respondWith {
                 createHTML()
                     .html {
@@ -238,9 +280,8 @@ fun Application.module(testing: Boolean = false) {
 
             println("authCode = $authCode")
 
-            credential = getWebServerCredentials(authCode)
             try {
-
+                credential = getWebServerCredentials(authCode)
             } catch (e: Throwable) {
                 e.printStackTrace()
             }

@@ -75,7 +75,7 @@ class TradingSheet(val ssId: String, credentials: Credential) {
             .also {
                 val range = UserSummaryRange.name
                 service.clear(ssId, range)
-                val nameMap = mutableListOf<String>()
+                val nameList = mutableListOf<String>()
                 it.forEach { k, v ->
                     println(k.name)
                     v.sortedWith(compareBy({ it.item.desc }))
@@ -83,11 +83,11 @@ class TradingSheet(val ssId: String, credentials: Credential) {
                             println("\t${it.amount} ${it.item.desc}")
                             service.append(ssId,
                                            range,
-                                           listOf(listOf(if (nameMap.contains(k.name)) "" else k.name,
+                                           listOf(listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
                                                          it.amount,
                                                          it.item.desc)),
                                            insertDataOption = InsertDataOption.OVERWRITE)
-                            nameMap += k.name
+                            nameList += k.name
                         }
                     println()
                 }
@@ -186,7 +186,7 @@ enum class InsertDataOption { OVERWRITE, INSERT_ROWS }
 fun <R> Sheets.query(ssId: String, range: String, mapper: List<Any>.() -> R) =
     spreadsheets().values().get(ssId, range).execute()
         .run {
-            getValues().map { mapper(it) }
+            getValues()?.map { mapper(it) } ?: emptyList()
         }
 
 fun Sheets.append(
