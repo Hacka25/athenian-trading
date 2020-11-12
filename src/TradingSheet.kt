@@ -1,45 +1,49 @@
+import TradingSheet.Ranges.*
 import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
+import com.google.api.services.sheets.v4.model.AppendValuesResponse
 import com.google.api.services.sheets.v4.model.ClearValuesRequest
 import com.google.api.services.sheets.v4.model.ValueRange
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
+import java.io.StringReader
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoField
 import java.time.temporal.ChronoUnit
 
+
 class TradingSheet(val ssId: String, credentials: Credential) {
+    enum class Ranges { UsersRange, GoodsAndServicesRange, AllocationsRange, TransactionsRange, UserSummaryRange }
 
     val service =
         Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
             .setApplicationName(APPLICATION_NAME)
             .build()
 
-    val users get() = service.query(ssId, "UsersRange") { User(this[0] as String) }
+    val users get() = service.query(ssId, UsersRange.name) { User(this[0] as String) }
 
-    val items get() = service.query(ssId, "GoodsAndServicesRange") { Item(this[0] as String) }
+    val items get() = service.query(ssId, GoodsAndServicesRange.name) { Item(this[0] as String) }
 
     val allocations
-        get() = service.query(ssId, "AllocationsRange") {
-            Transaction(
-                User(this[0] as String),
-                (this[1] as String).toInt(),
-                Item(this[2] as String)
-            )
+        get() = service.query(ssId, AllocationsRange.name) {
+            Transaction(User(this[0] as String), ItemAmount((this[1] as String).toInt(), Item(this[2] as String)))
         }
 
     val transactions
-        get() = service.query(ssId, "TransactionsRange") {
+        get() = service.query(ssId, TransactionsRange.name) {
             if (size == 7) {
                 val date = this[0]
                 val buyer = User(this[1] as String)
@@ -49,53 +53,64 @@ class TradingSheet(val ssId: String, credentials: Credential) {
                 val sellerAmount = (this[5] as String).toInt()
                 val sellerItem = Item(this[6] as String)
                 listOf(
-                    Transaction(buyer, -1 * buyerAmount, buyerItem),
-                    Transaction(seller, buyerAmount, buyerItem),
-                    Transaction(buyer, sellerAmount, sellerItem),
-                    Transaction(seller, -1 * sellerAmount, sellerItem)
+                    Transaction(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
+                    Transaction(seller, ItemAmount(buyerAmount, buyerItem)),
+                    Transaction(buyer, ItemAmount(sellerAmount, sellerItem)),
+                    Transaction(seller, ItemAmount(-1 * sellerAmount, sellerItem))
                 )
             } else {
                 emptyList()
             }
         }.flatten()
 
-    fun calc() {
-        val range = "UserSummaryRange"
-        service.clear(ssId, range)
+    fun clearTransactions() = service.clear(ssId, TransactionsRange.name)
 
-        val nameMap = mutableListOf<String>()
+    fun calcUserSummary(): Map<User, List<ItemAmount>> =
         (allocations + transactions)
-            .groupBy({ it.user to it.item }, { it.amount })
-            .map { Transaction(it.key.first, it.value.sum(), it.key.second) }
-            .groupBy({ it.user }, { it.amount to it.item })
+            .groupBy({ it.user to it.itemAmount.item }, { it.itemAmount.amount })
+            .map { Transaction(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
+            .filter { it.itemAmount.amount != 0 }
+            .groupBy({ it.user }, { ItemAmount(it.itemAmount.amount, it.itemAmount.item) })
             .toSortedMap(compareBy({ it.name }))
-            .forEach { k, v ->
-                println(k.name)
-                v.sortedWith(compareBy({ it.second.desc }))
-                    .forEach {
-                        println("\t${it.first} ${it.second.desc}")
-                        service.append(ssId,
-                                       range,
-                                       listOf(listOf(if (nameMap.contains(k.name)) "" else k.name,
-                                                     it.first,
-                                                     it.second.desc)),
-                                       insertDataOption = InsertDataOption.OVERWRITE)
-                        nameMap += k.name
-                    }
-                println()
+            .also {
+                val range = UserSummaryRange.name
+                service.clear(ssId, range)
+                val nameMap = mutableListOf<String>()
+                it.forEach { k, v ->
+                    println(k.name)
+                    v.sortedWith(compareBy({ it.item.desc }))
+                        .forEach {
+                            println("\t${it.amount} ${it.item.desc}")
+                            service.append(ssId,
+                                           range,
+                                           listOf(listOf(if (nameMap.contains(k.name)) "" else k.name,
+                                                         it.amount,
+                                                         it.item.desc)),
+                                           insertDataOption = InsertDataOption.OVERWRITE)
+                            nameMap += k.name
+                        }
+                    println()
+                }
             }
-    }
 
-    fun addItems() {
+    fun addItems(): Pair<String, AppendValuesResponse> {
+        val userList = users
+        val itemList = items
+        val fromUser = userList.random()
+        val toUser = (userList - fromUser).random()
+        val fromItem = itemList.random()
+        val toItem = (itemList - fromItem).random()
+        val fromAmount = (1..10).random()
+        val toAmount = (1..10).random()
         val response =
             service.append(
                 ssId,
-                "TransactionsRange",
-                listOf(listOf(nowForSheets(), "Paul", "4", "dollars", "Suzy", 5, "lbs of sugar"))
-            )
-        println(response)
+                TransactionsRange.name,
+                listOf(listOf(nowForSheets(),
+                              fromUser.name, fromAmount, fromItem.desc,
+                              toUser.name, toAmount, toItem.desc)))
+        return "${fromUser.name} $fromAmount ${fromItem.desc} ${toUser.name} $toAmount ${toItem.desc}" to response
     }
-
 
     companion object {
         internal const val ssId = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
@@ -125,15 +140,45 @@ class TradingSheet(val ssId: String, credentials: Credential) {
                     .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
                     .setAccessType("offline")
                     .build()
-            val receiver = LocalServerReceiver.Builder().setPort(8888).build()
+            val receiver = LocalServerReceiver.Builder().setPort(8080).build()
             return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
+        }
+
+        fun getWebServerCredentials(authCode: String): GoogleCredential {
+            val strReader = StringReader(System.getenv("AUTH_CREDENTIALS"))
+            val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, strReader)
+            val tokenResponse =
+                GoogleAuthorizationCodeTokenRequest(
+                    NetHttpTransport(),
+                    JSON_FACTORY,
+                    "https://oauth2.googleapis.com/token",
+                    clientSecrets.details.clientId,
+                    clientSecrets.details.clientSecret,
+                    authCode,
+                    "http://localhost:8080")
+                    // Specify the same redirect URI that you use with your web
+                    // app. If you don't have a web version of your app, you can
+                    // specify an empty string.
+                    .execute()
+
+            val accessToken = tokenResponse.accessToken
+
+            // Get profile info from ID token
+            val idToken = tokenResponse.parseIdToken()
+            val payload = idToken.payload
+            val userId = payload.subject // Use this value as a key to identify a user.
+
+            //println("payload = $payload")
+
+            return GoogleCredential().setAccessToken(accessToken)
         }
     }
 }
 
 data class User(val name: String)
 data class Item(val desc: String)
-data class Transaction(val user: User, val amount: Int, val item: Item)
+data class ItemAmount(val amount: Int, val item: Item)
+data class Transaction(val user: User, val itemAmount: ItemAmount)
 
 enum class ValueInputOption { USER_ENTERED, RAW }
 enum class InsertDataOption { OVERWRITE, INSERT_ROWS }
@@ -149,7 +194,7 @@ fun Sheets.append(
     range: String,
     values: List<List<Any>>,
     valueInputOption: ValueInputOption = ValueInputOption.USER_ENTERED,
-    insertDataOption: InsertDataOption = InsertDataOption.INSERT_ROWS
+    insertDataOption: InsertDataOption = InsertDataOption.OVERWRITE
 ) =
     spreadsheets().values().append(ssId, range, ValueRange().setValues(values))
         .also {

@@ -5,5 +5,5 @@ fun main() {
     val tradingSheet = TradingSheet(ssId, getLocalAppCredentials())
     println(tradingSheet.users)
     println(tradingSheet.items)
-    println(tradingSheet.calc())
+    println(tradingSheet.calcUserSummary())
 }

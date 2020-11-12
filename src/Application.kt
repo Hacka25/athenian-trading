@@ -1,28 +1,36 @@
 package com.github.pambrose
 
 import TradingSheet
+import TradingSheet.Companion.getWebServerCredentials
 import TradingSheet.Companion.ssId
 import com.github.pambrose.common.response.respondWith
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
-import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.html.*
+import io.ktor.http.*
 import io.ktor.request.*
+import io.ktor.response.*
 import io.ktor.routing.*
+import io.ktor.util.pipeline.*
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import org.slf4j.event.Level
-import java.io.StringReader
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.security.InvalidParameterException
+
 
 fun main(args: Array<String>): Unit = io.ktor.server.cio.EngineMain.main(args)
 
+const val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef"
+
+const val ADD_TXN = "/add"
+const val CLEAR_TXNS = "/clear"
+
 var credential: GoogleCredential? = null
+
 
 @Suppress("unused") // Referenced in application.conf
 @JvmOverloads
@@ -32,29 +40,119 @@ fun Application.module(testing: Boolean = false) {
         filter { call -> call.request.path().startsWith("/") }
     }
 
-    val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef"
+    fun BODY.home() {
+        p {
+            a { href = "/"; rawHtml("&larr; Back") }
+        }
+    }
 
-    routing {
-        get("/test") {
-            call.respondHtml {
+    fun BODY.choices() {
+        ul {
+            li { a { href = "/auth"; +"Auth" } }
+            if (credential != null) {
+                li { a { href = "/users"; +"Users" } }
+                li { a { href = "/items"; +"Goods and services" } }
+                li { a { href = ADD_TXN; +"Add random transaction" } }
+                li { a { href = CLEAR_TXNS; +"Clear transactions" } }
+                li { a { href = "/calc"; +"Calculate balances" } }
+            }
+        }
+    }
+
+    fun Routing.results(block: BODY.() -> Unit) =
+        createHTML()
+            .html {
                 body {
-                    +"Hello"
+                    choices()
+                    block()
                 }
             }
 
+    fun Routing.stackTrace(e: Throwable) =
+        createHTML()
+            .html {
+                body {
+                    choices()
+                    val sw = StringWriter()
+                    e.printStackTrace(PrintWriter(sw))
+                    h2 { +"Error" }
+                    pre { +sw.toString() }
+                }
+            }
+
+    fun tradingSheet() = TradingSheet(ssId, credential ?: throw IllegalArgumentException("No credentials"))
+
+
+    routing {
+        get("/") {
+            call.respondHtml {
+                body {
+                    choices()
+                }
+            }
         }
 
-        get("/calc") {
+        get(ADD_TXN) {
+            call.respondText(
+                try {
+                    this@routing.results {
+                        h2 { +"Random transaction added" }
+                        tradingSheet().addItems()
+                            .apply {
+                                div { +first }
+                                pre { +second.toString() }
+                            }
+                    }
+                } catch (e: Throwable) {
+                    this@routing.stackTrace(e)
+                },
+                ContentType.Text.Html
+            )
+        }
+
+        get(CLEAR_TXNS) {
+            call.respondText(
+                try {
+                    this@routing.results {
+                        h2 { +"Transactions cleared" }
+                        tradingSheet().clearTransactions()
+                            .also {
+                                pre { +it.toString() }
+                            }
+                    }
+                } catch (e: Throwable) {
+                    this@routing.stackTrace(e)
+                },
+                ContentType.Text.Html
+            )
+        }
+
+        get("/users") {
             try {
-                val tradingSheet = TradingSheet(ssId, credential!!)
-                println(tradingSheet.users)
+                println(tradingSheet().users)
             } catch (e: Throwable) {
                 e.printStackTrace()
             }
 
             call.respondHtml {
                 body {
-                    +"Got it"
+                    choices()
+                    +"Users"
+                }
+            }
+        }
+
+        get("/calc") {
+            try {
+                val map = tradingSheet().calcUserSummary()
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
+
+            call.respondHtml {
+                body {
+                    choices()
+                    +"Calculated"
                 }
             }
         }
@@ -93,6 +191,8 @@ fun Application.module(testing: Boolean = false) {
                                 id = "signinButton"
                                 +"Sign in with Google"
                             }
+                            home()
+
                             script {
                                 rawHtml("""                                        
                                     ${'$'}('#signinButton').click(function() {
@@ -138,42 +238,16 @@ fun Application.module(testing: Boolean = false) {
 
             println("authCode = $authCode")
 
-            val strReader = StringReader(System.getenv("AUTH_CREDENTIALS"))
-            val clientSecrets = GoogleClientSecrets.load(JacksonFactory.getDefaultInstance(), strReader)
-
+            credential = getWebServerCredentials(authCode)
             try {
-                val tokenResponse =
-                    GoogleAuthorizationCodeTokenRequest(
-                        NetHttpTransport(),
-                        JacksonFactory.getDefaultInstance(),
-                        "https://oauth2.googleapis.com/token",
-                        clientSecrets.details.clientId,
-                        clientSecrets.details.clientSecret,
-                        authCode,
-                        "http://localhost:8080")
-                        // Specify the same redirect URI that you use with your web
-                        // app. If you don't have a web version of your app, you can
-                        // specify an empty string.
-                        .execute()
 
-                val accessToken = tokenResponse.accessToken
-
-                // Use access token to call API
-                credential = GoogleCredential().setAccessToken(accessToken)
-
-                // Get profile info from ID token
-                val idToken = tokenResponse.parseIdToken()
-                val payload = idToken.payload
-                val userId = payload.subject // Use this value as a key to identify a user.
-
-                println("payload = $payload")
             } catch (e: Throwable) {
                 e.printStackTrace()
             }
 
             call.respondHtml {
                 body {
-                    +"OK"
+                    +"Authorized"
                 }
             }
         }
