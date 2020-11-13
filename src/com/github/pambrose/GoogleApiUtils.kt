@@ -117,5 +117,6 @@ object GoogleApiUtils {
 enum class ValueInputOption { USER_ENTERED, RAW }
 enum class InsertDataOption { OVERWRITE, INSERT_ROWS }
 
-class MissingCredentials(str: String) : Exception(str)
-class GoogleApiException(str: String) : Exception(str)
+class MissingCredentials(msg: String) : Exception(msg)
+class GoogleApiException(msg: String) : Exception(msg)
+class InvalidRequestException(msg: String) : Exception(msg)

@@ -17,6 +17,7 @@ import com.github.pambrose.Constants.SIGN_IN_BUTTON
 import com.github.pambrose.Constants.STORE_AUTH_CODE
 import com.github.pambrose.Constants.USERS
 import com.github.pambrose.GoogleApiUtils.getWebServerCredentials
+import com.github.pambrose.ParamNames.*
 import com.github.pambrose.common.response.respondWith
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.services.sheets.v4.SheetsScopes
@@ -61,6 +62,8 @@ object Constants {
   const val APP_TITLE = "Athenian Trading App"
   const val SIGN_IN_BUTTON = "signinButton"
 }
+
+enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
 
 var credential: GoogleCredential? = null
 
@@ -186,7 +189,16 @@ fun Application.module(testing: Boolean = false) {
     get(RANDOM_TXN) {
       results {
         h2 { +"Random transaction added" }
-        tradingSheet().addItems()
+
+        val ts = tradingSheet()
+        val userList = ts.users
+        val itemList = ts.items
+        val buyerUser = userList.random()
+        val sellerUser = (userList - buyerUser).random()
+        val buyerItem = itemList.random()
+        val sellerItem = (itemList - buyerItem).random()
+
+        ts.addItems(buyerUser, (1..10).random(), buyerItem, sellerUser, (1..10).random(), sellerItem)
           .apply {
             div { +first }
             pre { +second.toString() }
@@ -203,48 +215,59 @@ fun Application.module(testing: Boolean = false) {
 
           val ts = tradingSheet()
           table {
-            tr {
-              td { b { +"Seller" } }
-            }
+
+            tr { td { b { +"Buyer:" } } }
+
             tr {
               td { rawHtml(Entities.nbsp.text) }
-              td { select { ts.users.map { it.name }.forEach { option { value = it; +it } } } }
+              td {
+                select {
+                  name = BUYER_NAME.name
+                  ts.users.forEach { option { value = it.name; +it.name } }
+                }
+              }
               td {
                 numberInput {
                   size = "6"
-                  name = "sellerAmount"
+                  name = BUYER_AMOUNT.name
                   value = "0"
                 }
               }
-              td { select { ts.items.map { it.desc }.forEach { option { value = it; +it } } } }
+              td {
+                select {
+                  name = BUYER_ITEM.name
+                  ts.items.forEach { option { value = it.desc; +it.desc } }
+                }
+              }
             }
 
-            tr {
-              td { rawHtml(Entities.nbsp.text) }
-            }
+            tr { td { rawHtml(Entities.nbsp.text) } }
 
-            tr {
-              td { b { +"Buyer:" } }
-              td {}
-              td {}
-              td {}
-            }
+            tr { td { b { +"Seller" } } }
             tr {
               td { rawHtml(Entities.nbsp.text) }
-              td { select { ts.users.forEach { option { value = it.name; +it.name } } } }
+              td {
+                select {
+                  name = SELLER_NAME.name
+                  ts.users.map { it.name }.forEach { option { value = it; +it } }
+                }
+              }
               td {
                 numberInput {
                   size = "6"
-                  name = "buyerAmount"
+                  name = SELLER_AMOUNT.name
                   value = "0"
                 }
               }
-              td { select { ts.items.forEach { option { value = it.desc; +it.desc } } } }
+              td {
+                select {
+                  name = SELLER_ITEM.name
+                  ts.items.map { it.desc }.forEach { option { value = it; +it } }
+                }
+              }
             }
 
-            tr {
-              td { rawHtml(Entities.nbsp.text) }
-            }
+            tr { td { rawHtml(Entities.nbsp.text) } }
 
             tr {
               td {}
@@ -252,6 +275,37 @@ fun Application.module(testing: Boolean = false) {
             }
           }
         }
+      }
+    }
+
+    post(ADD_TXN) {
+      val ts = tradingSheet()
+
+      val params = call.receiveParameters()
+      val buyerUser =
+        ts.users.filter { it.name == params[BUYER_NAME.name] }
+          .firstOrNull() ?: throw InvalidRequestException("Buyer user")
+      val buyerAmount = params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount")
+      val buyerItem =
+        ts.items.filter { it.desc == params[BUYER_ITEM.name] }
+          .firstOrNull() ?: throw InvalidRequestException("Buyer item")
+      val sellerUser =
+        ts.users.filter { it.name == params[SELLER_NAME.name] }
+          .firstOrNull() ?: throw InvalidRequestException("Seller user")
+      val sellerAmount = params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount")
+      val sellerItem =
+        ts.items.filter { it.desc == params[SELLER_ITEM.name] }
+          .firstOrNull() ?: throw InvalidRequestException("Seller item")
+
+      val addResult = ts.addItems(buyerUser, buyerAmount, buyerItem, sellerUser, sellerAmount, sellerItem)
+
+      results {
+        h2 { +"Transaction added" }
+        addResult
+          .apply {
+            div { +first }
+            pre { +second.toString() }
+          }
       }
     }
 

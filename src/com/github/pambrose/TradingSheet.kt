@@ -112,23 +112,22 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         }
       }
 
-  fun addItems(): Pair<String, AppendValuesResponse> {
-    val userList = users
-    val itemList = items
-    val fromUser = userList.random()
-    val toUser = (userList - fromUser).random()
-    val fromItem = itemList.random()
-    val toItem = (itemList - fromItem).random()
-    val fromAmount = (1..10).random()
-    val toAmount = (1..10).random()
+  fun addItems(
+    buyerUser: User,
+    buyerAmount: Int,
+    buyerItem: Item,
+    sellerUser: User,
+    sellerAmount: Int,
+    sellerItem: Item
+  ): Pair<String, AppendValuesResponse> {
     val response =
       service.append(
         ssId,
         TransactionsRange.name,
         listOf(listOf(nowDateTime(),
-                      fromUser.name, fromAmount, fromItem.desc,
-                      toUser.name, toAmount, toItem.desc)))
-    return "${fromUser.name} $fromAmount ${fromItem.desc} ${toUser.name} $toAmount ${toItem.desc}" to response
+                      buyerUser.name, buyerAmount, buyerItem.desc,
+                      sellerUser.name, sellerAmount, sellerItem.desc)))
+    return "${buyerUser.name} $buyerAmount ${buyerItem.desc} ${sellerUser.name} $sellerAmount ${sellerItem.desc}" to response
   }
 
 }
