@@ -1,5 +1,6 @@
 package com.github.pambrose
 
+import com.github.pambrose.Config.BASE_URL
 import com.github.pambrose.Config.CLIENT_ID
 import com.github.pambrose.Config.SS_ID
 import com.github.pambrose.Constants.ADD_TXN
@@ -9,9 +10,13 @@ import com.github.pambrose.Constants.AUTH
 import com.github.pambrose.Constants.CALC
 import com.github.pambrose.Constants.CLEAR_TXNS
 import com.github.pambrose.Constants.ITEMS
+import com.github.pambrose.Constants.RANDOM_TXN
+import com.github.pambrose.Constants.REFRESH_ITEMS
+import com.github.pambrose.Constants.REFRESH_USERS
+import com.github.pambrose.Constants.SIGN_IN_BUTTON
 import com.github.pambrose.Constants.STORE_AUTH_CODE
 import com.github.pambrose.Constants.USERS
-import com.github.pambrose.TradingSheet.Companion.getWebServerCredentials
+import com.github.pambrose.GoogleApiUtils.getWebServerCredentials
 import com.github.pambrose.common.response.respondWith
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.services.sheets.v4.SheetsScopes
@@ -33,24 +38,28 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.security.InvalidParameterException
 
-
 typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
 
 object Config {
-  const val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef"
+  const val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef.apps.googleusercontent.com"
   const val SS_ID = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
+  const val BASE_URL = "http://localhost:8080"
 }
 
 object Constants {
   const val USERS = "/users"
+  const val REFRESH_USERS = "/refresh-users"
   const val ITEMS = "/items"
+  const val REFRESH_ITEMS = "/refrsh-items"
   const val ALLOCATIONS = "/allocations"
+  const val RANDOM_TXN = "/random"
   const val ADD_TXN = "/add"
   const val CLEAR_TXNS = "/clear"
   const val CALC = "/calc"
   const val AUTH = "/auth"
   const val STORE_AUTH_CODE = "/storeauthcode"
   const val APP_TITLE = "Athenian Trading App"
+  const val SIGN_IN_BUTTON = "signinButton"
 }
 
 var credential: GoogleCredential? = null
@@ -62,24 +71,22 @@ fun Application.module(testing: Boolean = false) {
     filter { call -> call.request.path().startsWith("/") }
   }
 
-  fun BODY.back() {
-    p {
-      a { href = "/"; rawHtml("&larr; Back") }
-    }
-  }
-
   fun BODY.choices() {
     h1 { +APP_TITLE }
 
     ul {
       style = "padding-left:0; margin-bottom:0; list-style-type:none"
-      li { a { href = AUTH; +"Authorize app" } }
-      if (credential != null) {
+      if (credential == null) {
+        li { a { href = AUTH; +"Authorize app" } }
+      } else {
         li { a { href = USERS; +"Users" } }
+        li { a { href = REFRESH_USERS; +"Refresh users" } }
         li { a { href = ITEMS; +"Goods and services" } }
+        li { a { href = REFRESH_ITEMS; +"Refresh goods and services" } }
         li { a { href = ALLOCATIONS; +"Allocations" } }
-        li { a { href = ADD_TXN; +"Add random transaction" } }
-        li { a { href = CLEAR_TXNS; +"Clear transactions" } }
+        li { a { href = RANDOM_TXN; +"Add random transaction" } }
+        li { a { href = ADD_TXN; +"Add transaction" } }
+        // li { a { href = CLEAR_TXNS; +"Clear transactions" } }
         li { a { href = CALC; +"Calculate balances" } }
       }
     }
@@ -97,12 +104,13 @@ fun Application.module(testing: Boolean = false) {
         }
       }
 
-  suspend fun PipelineCall.results(block: BODY.() -> Unit) =
+  suspend fun PipelineCall.results(options: Boolean = true, block: BODY.() -> Unit) =
     try {
       createHTML()
         .html {
           body {
-            choices()
+            if (options)
+              choices()
             block()
           }
         }
@@ -119,48 +127,39 @@ fun Application.module(testing: Boolean = false) {
       call.respondHtml { body { choices() } }
     }
 
-    get(ADD_TXN) {
-      results {
-        h2 { +"Random transaction added" }
-        tradingSheet().addItems()
-          .apply {
-            div { +first }
-            pre { +second.toString() }
-          }
-      }
-    }
-
-    get(CLEAR_TXNS) {
-      results {
-        h2 { +"Transactions cleared" }
-        tradingSheet().clearTransactions()
-          .also {
-            pre { +it.toString() }
-          }
-      }
-    }
-
     get(USERS) {
       results {
         h2 { +"Users" }
-        tradingSheet().users
-          .also { users ->
-            table {
-              users.forEach { tr { td { +it.name } } }
-            }
-          }
+        table {
+          tradingSheet().users.forEach { tr { td { +it.name } } }
+        }
+      }
+    }
+
+    get(REFRESH_USERS) {
+      results {
+        h2 { +"Users" }
+        table {
+          tradingSheet().refreshUsers().forEach { tr { td { +it.name } } }
+        }
       }
     }
 
     get(ITEMS) {
       results {
         h2 { +"Goods and services" }
-        tradingSheet().items
-          .also { items ->
-            table {
-              items.forEach { tr { td { +it.desc } } }
-            }
-          }
+        table {
+          tradingSheet().items.forEach { tr { td { +it.desc } } }
+        }
+      }
+    }
+
+    get(REFRESH_ITEMS) {
+      results {
+        h2 { +"Goods and services" }
+        table {
+          tradingSheet().refreshItems().forEach { tr { td { +it.desc } } }
+        }
       }
     }
 
@@ -180,6 +179,88 @@ fun Application.module(testing: Boolean = false) {
                 }
               }
             }
+          }
+      }
+    }
+
+    get(RANDOM_TXN) {
+      results {
+        h2 { +"Random transaction added" }
+        tradingSheet().addItems()
+          .apply {
+            div { +first }
+            pre { +second.toString() }
+          }
+      }
+    }
+
+    get(ADD_TXN) {
+      results(false) {
+        h2 { +"Add transaction" }
+        form {
+          action = ADD_TXN
+          method = FormMethod.post
+
+          val ts = tradingSheet()
+          table {
+            tr {
+              td { b { +"Seller" } }
+            }
+            tr {
+              td { rawHtml(Entities.nbsp.text) }
+              td { select { ts.users.map { it.name }.forEach { option { value = it; +it } } } }
+              td {
+                numberInput {
+                  size = "6"
+                  name = "sellerAmount"
+                  value = "0"
+                }
+              }
+              td { select { ts.items.map { it.desc }.forEach { option { value = it; +it } } } }
+            }
+
+            tr {
+              td { rawHtml(Entities.nbsp.text) }
+            }
+
+            tr {
+              td { b { +"Buyer:" } }
+              td {}
+              td {}
+              td {}
+            }
+            tr {
+              td { rawHtml(Entities.nbsp.text) }
+              td { select { ts.users.forEach { option { value = it.name; +it.name } } } }
+              td {
+                numberInput {
+                  size = "6"
+                  name = "buyerAmount"
+                  value = "0"
+                }
+              }
+              td { select { ts.items.forEach { option { value = it.desc; +it.desc } } } }
+            }
+
+            tr {
+              td { rawHtml(Entities.nbsp.text) }
+            }
+
+            tr {
+              td {}
+              td { submitInput { } }
+            }
+          }
+        }
+      }
+    }
+
+    get(CLEAR_TXNS) {
+      results {
+        h2 { +"Transactions cleared" }
+        tradingSheet().clearTransactions()
+          .also {
+            pre { +it.toString() }
           }
       }
     }
@@ -229,61 +310,62 @@ fun Application.module(testing: Boolean = false) {
                 defer = true
               }
               script {
-                rawHtml("""
-                                   function start() {
-                                     gapi.load('auth2', function() {
-                                        auth2 = gapi.auth2.init({
-                                            client_id: '$CLIENT_ID.apps.googleusercontent.com',
-                                            // Scopes to request in addition to 'profile' and 'email'
-                                            scope: '${SheetsScopes.SPREADSHEETS}'
-                                        });
-                                     });
-                                   }
-                                   """)
+                rawHtml(
+                  """
+                   function start() {
+                     gapi.load('auth2', function() {
+                        auth2 = gapi.auth2.init({
+                            client_id: '$CLIENT_ID',
+                            // Scopes to request in addition to 'profile' and 'email'
+                            scope: '${SheetsScopes.SPREADSHEETS}'
+                        });
+                     });
+                   }
+                   """.trimIndent())
               }
             }
             body {
-
               h1 { +APP_TITLE }
 
               button {
-                id = "signinButton"
-                +"Sign in with Google"
+                id = SIGN_IN_BUTTON
+                +"Authorize app with Google"
               }
 
-              back()
+              p { a { href = "/"; rawHtml("&larr; Back") } }
 
               script {
-                rawHtml("""                                        
-                                    ${'$'}('#signinButton').click(function() {
-                                        auth2.grantOfflineAccess().then(signInCallback);
-                                    });
+                rawHtml(
+                  """                                        
+                  ${"$"}('#$SIGN_IN_BUTTON').click(function() {
+                    auth2.grantOfflineAccess().then(signInCallback);
+                  });
 
-                                    function signInCallback(authResult) {
-                                      if (authResult['code']) {
-                                        // Hide the sign-in button now that the user is authorized, for example:
-                                        ${'$'}('#signinButton').attr('style', 'display: none');
-                                    
-                                        // Send the code to the server
-                                        ${'$'}.ajax({
-                                          type: 'POST',
-                                          url: 'http://localhost:8080$STORE_AUTH_CODE',
-                                          // Always include an `X-Requested-With` header in every AJAX request,
-                                          // to protect against CSRF attacks.
-                                          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                                          contentType: 'application/octet-stream; charset=utf-8',
-                                          success: function(result) {
-                                            // Handle or verify the server response.
-                                          },
-                                          processData: false,
-                                          data: authResult['code']
-                                        });
-                                      } else {
-                                        // There was an error.
-                                        console.log('Error in ajax call');
-                                      }
-                                    }                                        
-                                    """)
+                  function signInCallback(authResult) {
+                    if (authResult['code']) {
+                      // Hide the sign-in button now that the user is authorized
+                      ${'$'}('#$SIGN_IN_BUTTON').attr('style', 'display: none');
+                  
+                      // Send the code to the server
+                      ${'$'}.ajax({
+                        type: 'POST',
+                        url: '$BASE_URL$STORE_AUTH_CODE',
+                        // Always include an `X-Requested-With` header in every AJAX request,
+                        // to protect against CSRF attacks.
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        contentType: 'application/octet-stream; charset=utf-8',
+                        success: function(result) {
+                          // Handle or verify the server response.
+                        },
+                        processData: false,
+                        data: authResult['code']
+                      });
+                    } else {
+                      // There was an error.
+                      console.log('Error in ajax call');
+                    }
+                  }                                        
+                  """.trimIndent())
               }
             }
           }
@@ -292,7 +374,9 @@ fun Application.module(testing: Boolean = false) {
 
     post(STORE_AUTH_CODE) {
       try {
-        call.request.headers["X-Requested-With"] ?: throw InvalidParameterException("Missing X-Requested-With header")
+        "X-Requested-With".also {
+          call.request.headers[it] ?: throw InvalidParameterException("Missing $it header")
+        }
         val authCode = call.receive<String>()
         credential = getWebServerCredentials(authCode)
         call.respondText("OK", Plain, HttpStatusCode.OK)
