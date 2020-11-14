@@ -84,7 +84,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
   fun clearTransactions() =
     service.clear(ssId, TransactionsRange.name)
 
-  fun calcUserSummary(): Map<User, List<ItemAmount>> =
+  fun calcBalances(): Map<User, List<ItemAmount>> =
     (allocations + transactions)
       .groupBy({ it.user to it.itemAmount.item }, { it.itemAmount.amount })
       .map { Transaction(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }

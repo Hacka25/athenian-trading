@@ -7,6 +7,6 @@ fun main() {
   TradingSheet(SS_ID, getLocalAppCredentials()).apply {
     println(users)
     println(items)
-    println(calcUserSummary())
+    println(calcBalances())
   }
 }

@@ -1,5 +1,8 @@
 package com.github.pambrose
 
+import com.github.pambrose.Config.BASE_URL
+import com.github.pambrose.Constants.AUTH
+import com.github.pambrose.Constants.PAUSE
 import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
@@ -51,13 +54,16 @@ object GoogleApiUtils {
     val inStream = Sheets::class.java.getResourceAsStream(CREDENTIALS_FILE_PATH)
       ?: throw FileNotFoundException("Resource not found: $CREDENTIALS_FILE_PATH")
     val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(inStream))
-
     val flow =
       GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
         .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
         .setAccessType("offline")
         .build()
-    val receiver = LocalServerReceiver.Builder().setPort(8080).build()
+    val receiver =
+      LocalServerReceiver.Builder()
+        .setPort(8888)
+        .setLandingPages("$BASE_URL$PAUSE", "$BASE_URL$AUTH")
+        .build()
     return AuthorizationCodeInstalledApp(flow, receiver).authorize("user")
   }
 
