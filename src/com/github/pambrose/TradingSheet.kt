@@ -6,7 +6,9 @@ import com.github.pambrose.GoogleApiUtils.nowDateTime
 import com.github.pambrose.GoogleApiUtils.query
 import com.github.pambrose.GoogleApiUtils.sheetsService
 import com.github.pambrose.InsertDataOption.OVERWRITE
+import com.github.pambrose.Item.Companion.asItem
 import com.github.pambrose.TradingSheet.Ranges.*
+import com.github.pambrose.User.Companion.asUser
 import com.google.api.client.auth.oauth2.Credential
 
 private const val APPLICATION_NAME = "Athenian Trading App"
@@ -47,29 +49,29 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   fun refreshUsers() = ServiceCache.refreshUsers(this)
 
-  internal fun fetchUsers() = service.query(ssId, UsersRange.name) { User(this[0] as String) }
+  internal fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).asUser() }
 
   val items get() = ServiceCache.items(this)
 
   fun refreshItems() = ServiceCache.refreshItems(this)
 
-  internal fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { Item(this[0] as String) }
+  internal fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).asItem() }
 
   val allocations
     get() = service.query(ssId, AllocationsRange.name) {
-      TxnHalf(User(this[0] as String), ItemAmount((this[1] as String).toInt(), Item(this[2] as String)))
+      TxnHalf((this[0] as String).asUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).asItem()))
     }
 
   private val transactions
     get() = service.query(ssId, TransactionsRange.name) {
       if (size == 7) {
         val date = this[0]
-        val buyer = User(this[1] as String)
+        val buyer = (this[1] as String).asUser()
         val buyerAmount = (this[2] as String).toInt()
-        val buyerItem = Item(this[3] as String)
-        val seller = User(this[4] as String)
+        val buyerItem = (this[3] as String).asItem()
+        val seller = (this[4] as String).asUser()
         val sellerAmount = (this[5] as String).toInt()
-        val sellerItem = Item(this[6] as String)
+        val sellerItem = (this[6] as String).asItem()
         listOf(
           TxnHalf(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
           TxnHalf(seller, ItemAmount(buyerAmount, buyerItem)),
@@ -98,7 +100,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
           println(k.name)
           v.sortedWith(compareBy { it.item.desc })
             .forEach { itemAmount ->
-              println("\t${itemAmount.amount} ${itemAmount.item.desc}")
+              println("\t$itemAmount")
               insertList += listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
                                    itemAmount.amount,
                                    itemAmount.item.desc)
@@ -121,24 +123,28 @@ class TradingSheet(private val ssId: String, credential: Credential) {
                     buyer.user.name, buyer.itemAmount.amount, buyer.itemAmount.item.desc,
                     seller.user.name, seller.itemAmount.amount, seller.itemAmount.item.desc)))
       .let { response ->
-        "${buyer.user.name} traded ${buyer.itemAmount} to ${seller.user.name} in exchange for ${seller.itemAmount}" to response
+        "${buyer.user} traded ${buyer.itemAmount} with ${seller.user} in exchange for ${seller.itemAmount}" to response
       }
 }
 
 data class User(val name: String) {
+  override fun toString() = name
+
   companion object {
-    fun String.toUser() = User(this)
+    fun String.asUser() = User(this)
   }
 }
 
 data class Item(val desc: String) {
+  override fun toString() = desc
+
   companion object {
-    fun String.toItem() = Item(this)
+    fun String.asItem() = Item(this)
   }
 }
 
 data class ItemAmount(val amount: Int, val item: Item) {
-  override fun toString() = "$amount ${item.desc}"
+  override fun toString() = "$amount $item"
 }
 
 data class TxnHalf(val user: User, val itemAmount: ItemAmount)

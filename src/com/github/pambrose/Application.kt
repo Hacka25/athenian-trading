@@ -20,9 +20,9 @@ import com.github.pambrose.Constants.USERS
 import com.github.pambrose.GoogleApiUtils.getLocalAppCredentials
 import com.github.pambrose.GoogleApiUtils.getWebServerCredentials
 import com.github.pambrose.Installs.installs
-import com.github.pambrose.Item.Companion.toItem
+import com.github.pambrose.Item.Companion.asItem
 import com.github.pambrose.ParamNames.*
-import com.github.pambrose.User.Companion.toUser
+import com.github.pambrose.User.Companion.asUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.google.api.client.auth.oauth2.Credential
@@ -220,7 +220,7 @@ fun Application.module(testing: Boolean = false) {
                         style = "padding-right:5;"
                         b { +it.user.name }
                       }
-                      td { +"${it.itemAmount.amount} ${it.itemAmount.item.desc}" }
+                      td { +"${it.itemAmount}" }
                     }
                   }
                 }
@@ -335,13 +335,13 @@ fun Application.module(testing: Boolean = false) {
           val ts = tradingSheet()
           val params = call.request.queryParameters
           val buyer =
-            TxnHalf(params[BUYER_NAME.name]?.toUser() ?: ts.users[0],
+            TxnHalf(params[BUYER_NAME.name]?.asUser() ?: ts.users[0],
                     ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
-                               params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
+                               params[BUYER_ITEM.name]?.asItem() ?: ts.items[0]))
           val seller =
-            TxnHalf(params[SELLER_NAME.name]?.toUser() ?: ts.users[0],
+            TxnHalf(params[SELLER_NAME.name]?.asUser() ?: ts.users[0],
                     ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
-                               params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
+                               params[SELLER_ITEM.name]?.asItem() ?: ts.items[0]))
 
           page {
             choices()
@@ -434,7 +434,7 @@ fun Application.module(testing: Boolean = false) {
                             style = "padding-left:10;padding-right:5;"
                             b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
                           }
-                          td { +"${it.amount} ${it.item.desc}" }
+                          td { +"${it}" }
                         }
                         nameList += row.key.name
                       }
