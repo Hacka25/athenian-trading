@@ -5,9 +5,9 @@ import com.github.pambrose.GoogleApiUtils.clear
 import com.github.pambrose.GoogleApiUtils.nowDateTime
 import com.github.pambrose.GoogleApiUtils.query
 import com.github.pambrose.GoogleApiUtils.sheetsService
+import com.github.pambrose.InsertDataOption.OVERWRITE
 import com.github.pambrose.TradingSheet.Ranges.*
 import com.google.api.client.auth.oauth2.Credential
-import com.google.api.services.sheets.v4.model.AppendValuesResponse
 
 private const val APPLICATION_NAME = "Athenian Trading App"
 
@@ -57,7 +57,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   val allocations
     get() = service.query(ssId, AllocationsRange.name) {
-      Transaction(User(this[0] as String), ItemAmount((this[1] as String).toInt(), Item(this[2] as String)))
+      TxnHalf(User(this[0] as String), ItemAmount((this[1] as String).toInt(), Item(this[2] as String)))
     }
 
   private val transactions
@@ -71,10 +71,10 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         val sellerAmount = (this[5] as String).toInt()
         val sellerItem = Item(this[6] as String)
         listOf(
-          Transaction(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
-          Transaction(seller, ItemAmount(buyerAmount, buyerItem)),
-          Transaction(buyer, ItemAmount(sellerAmount, sellerItem)),
-          Transaction(seller, ItemAmount(-1 * sellerAmount, sellerItem))
+          TxnHalf(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
+          TxnHalf(seller, ItemAmount(buyerAmount, buyerItem)),
+          TxnHalf(buyer, ItemAmount(sellerAmount, sellerItem)),
+          TxnHalf(seller, ItemAmount(-1 * sellerAmount, sellerItem))
         )
       } else {
         emptyList()
@@ -87,52 +87,58 @@ class TradingSheet(private val ssId: String, credential: Credential) {
   fun calcBalances(): Map<User, List<ItemAmount>> =
     (allocations + transactions)
       .groupBy({ it.user to it.itemAmount.item }, { it.itemAmount.amount })
-      .map { Transaction(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
+      .map { TxnHalf(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
       .filter { it.itemAmount.amount != 0 }
       .groupBy({ it.user }, { ItemAmount(it.itemAmount.amount, it.itemAmount.item) })
       .toSortedMap(compareBy { it.name })
       .also { map ->
-        val range = BalancesRange.name
-        service.clear(ssId, range)
+        val insertList = mutableListOf<List<Any>>()
         val nameList = mutableListOf<String>()
         map.forEach { (k, v) ->
           println(k.name)
           v.sortedWith(compareBy { it.item.desc })
             .forEach { itemAmount ->
               println("\t${itemAmount.amount} ${itemAmount.item.desc}")
-              service.append(ssId,
-                             range,
-                             listOf(listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
-                                           itemAmount.amount,
-                                           itemAmount.item.desc)),
-                             insertDataOption = InsertDataOption.OVERWRITE)
+              insertList += listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
+                                   itemAmount.amount,
+                                   itemAmount.item.desc)
               nameList += k.name
             }
           println()
         }
+        service.apply {
+          val range = BalancesRange.name
+          clear(ssId, range)
+          append(ssId, range, insertList, insertDataOption = OVERWRITE)
+        }
       }
 
-  fun addItems(
-    buyerUser: User,
-    buyerAmount: Int,
-    buyerItem: Item,
-    sellerUser: User,
-    sellerAmount: Int,
-    sellerItem: Item
-  ): Pair<String, AppendValuesResponse> {
-    val response =
-      service.append(
-        ssId,
-        TransactionsRange.name,
-        listOf(listOf(nowDateTime(),
-                      buyerUser.name, buyerAmount, buyerItem.desc,
-                      sellerUser.name, sellerAmount, sellerItem.desc)))
-    return "${buyerUser.name} $buyerAmount ${buyerItem.desc} ${sellerUser.name} $sellerAmount ${sellerItem.desc}" to response
-  }
-
+  fun addTransaction(buyer: TxnHalf, seller: TxnHalf) =
+    service.append(
+      ssId,
+      TransactionsRange.name,
+      listOf(listOf(nowDateTime(),
+                    buyer.user.name, buyer.itemAmount.amount, buyer.itemAmount.item.desc,
+                    seller.user.name, seller.itemAmount.amount, seller.itemAmount.item.desc)))
+      .let { response ->
+        "${buyer.user.name} traded ${buyer.itemAmount} to ${seller.user.name} in exchange for ${seller.itemAmount}" to response
+      }
 }
 
-data class User(val name: String)
-data class Item(val desc: String)
-data class ItemAmount(val amount: Int, val item: Item)
-data class Transaction(val user: User, val itemAmount: ItemAmount)
+data class User(val name: String) {
+  companion object {
+    fun String.toUser() = User(this)
+  }
+}
+
+data class Item(val desc: String) {
+  companion object {
+    fun String.toItem() = Item(this)
+  }
+}
+
+data class ItemAmount(val amount: Int, val item: Item) {
+  override fun toString() = "$amount ${item.desc}"
+}
+
+data class TxnHalf(val user: User, val itemAmount: ItemAmount)

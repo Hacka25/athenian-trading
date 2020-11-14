@@ -20,7 +20,9 @@ import com.github.pambrose.Constants.USERS
 import com.github.pambrose.GoogleApiUtils.getLocalAppCredentials
 import com.github.pambrose.GoogleApiUtils.getWebServerCredentials
 import com.github.pambrose.Installs.installs
+import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.ParamNames.*
+import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.google.api.client.auth.oauth2.Credential
@@ -31,7 +33,6 @@ import io.ktor.http.ContentType.Text.Plain
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
-import io.ktor.util.pipeline.*
 import kotlinx.coroutines.delay
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
@@ -40,8 +41,6 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.security.InvalidParameterException
 import kotlin.time.seconds
-
-typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
 
 object Config {
   const val CLIENT_ID = "344007939346-maouhkdjq9qdnnr68dn464c89p6lv8ef.apps.googleusercontent.com"
@@ -80,13 +79,13 @@ fun BODY.choices() {
       li { a { href = AUTH; +"Authorize app" } }
     } else {
       li {
-        a { href = USERS; +"Users" };
+        a { href = USERS; +"Users" }
         rawHtml(nbsp.text); rawHtml(nbsp.text); a {
         href = REFRESH_USERS; +"(Refresh)"
       }
       }
       li {
-        a { href = ITEMS; +"Goods and services" };
+        a { href = ITEMS; +"Goods and services" }
         rawHtml(nbsp.text); rawHtml(nbsp.text); a {
         href = REFRESH_ITEMS; +"(Refresh)"
       }
@@ -138,6 +137,7 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 
+    // Call this to give credentials a chance to be assigned
     get(PAUSE) {
       delay(1.seconds)
       redirectTo { BASE_URL }
@@ -246,13 +246,85 @@ fun Application.module(testing: Boolean = false) {
             val buyerItem = itemList.random()
             val sellerItem = (itemList - buyerItem).random()
 
-            ts.addItems(buyerUser, (1..10).random(), buyerItem, sellerUser, (1..10).random(), sellerItem)
+            ts.addTransaction(TxnHalf(buyerUser, ItemAmount((1..10).random(), buyerItem)),
+                              TxnHalf(sellerUser, ItemAmount((1..10).random(), sellerItem)))
               .apply {
                 div { +first }
                 //pre { +second.toString() }
               }
           }
         }
+    }
+
+    fun BODY.addTransactionForm(ts: TradingSheet, buyer: TxnHalf, seller: TxnHalf) {
+      form {
+        action = ADD_TXN
+        method = FormMethod.post
+
+        table {
+
+          tr { td { b { +"Buyer:" } } }
+
+          tr {
+            td { rawHtml(nbsp.text) }
+            td {
+              select {
+                name = BUYER_NAME.name
+                ts.users.map { it.name }.forEach { option { value = it; selected = (it == buyer.user.name); +it } }
+              }
+            }
+            td {
+              numberInput {
+                size = "6"
+                name = BUYER_AMOUNT.name
+                value = buyer.itemAmount.amount.toString()
+              }
+            }
+            td {
+              select {
+                name = BUYER_ITEM.name
+                ts.items.map { it.desc }
+                  .forEach { option { value = it; selected = (it == buyer.itemAmount.item.desc); +it } }
+              }
+            }
+          }
+
+          tr { td { rawHtml(nbsp.text) } }
+
+          tr { td { b { +"Seller" } } }
+          tr {
+            td { rawHtml(nbsp.text) }
+            td {
+              select {
+                name = SELLER_NAME.name
+                ts.users.map { it.name }.forEach { option { value = it; selected = (it == seller.user.name); +it } }
+              }
+            }
+            td {
+              numberInput {
+                size = "6"
+                name = SELLER_AMOUNT.name
+                value = seller.itemAmount.amount.toString()
+              }
+            }
+            td {
+              select {
+                name = SELLER_ITEM.name
+                ts.items.map { it.desc }
+                  .forEach { option { value = it; selected = (it == seller.itemAmount.item.desc); +it } }
+              }
+            }
+          }
+
+          tr { td { rawHtml(nbsp.text) } }
+
+          tr {
+            td {}
+            td { submitInput { } }
+          }
+        }
+      }
+
     }
 
     get(ADD_TXN) {
@@ -260,75 +332,21 @@ fun Application.module(testing: Boolean = false) {
         redirectTo { AUTH }
       else
         respondWith {
+          val ts = tradingSheet()
+          val params = call.request.queryParameters
+          val buyer =
+            TxnHalf(params[BUYER_NAME.name]?.toUser() ?: ts.users[0],
+                    ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
+                               params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
+          val seller =
+            TxnHalf(params[SELLER_NAME.name]?.toUser() ?: ts.users[0],
+                    ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
+                               params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
+
           page {
             choices()
             h2 { +"Add transaction" }
-            form {
-              action = ADD_TXN
-              method = FormMethod.post
-
-              val ts = tradingSheet()
-              table {
-
-                tr { td { b { +"Buyer:" } } }
-
-                tr {
-                  td { rawHtml(nbsp.text) }
-                  td {
-                    select {
-                      name = BUYER_NAME.name
-                      ts.users.forEach { option { value = it.name; +it.name } }
-                    }
-                  }
-                  td {
-                    numberInput {
-                      size = "6"
-                      name = BUYER_AMOUNT.name
-                      value = "0"
-                    }
-                  }
-                  td {
-                    select {
-                      name = BUYER_ITEM.name
-                      ts.items.forEach { option { value = it.desc; +it.desc } }
-                    }
-                  }
-                }
-
-                tr { td { rawHtml(nbsp.text) } }
-
-                tr { td { b { +"Seller" } } }
-                tr {
-                  td { rawHtml(nbsp.text) }
-                  td {
-                    select {
-                      name = SELLER_NAME.name
-                      ts.users.map { it.name }.forEach { option { value = it; +it } }
-                    }
-                  }
-                  td {
-                    numberInput {
-                      size = "6"
-                      name = SELLER_AMOUNT.name
-                      value = "0"
-                    }
-                  }
-                  td {
-                    select {
-                      name = SELLER_ITEM.name
-                      ts.items.map { it.desc }.forEach { option { value = it; +it } }
-                    }
-                  }
-                }
-
-                tr { td { rawHtml(nbsp.text) } }
-
-                tr {
-                  td {}
-                  td { submitInput { } }
-                }
-              }
-            }
+            addTransactionForm(ts, buyer, seller)
           }
         }
     }
@@ -336,20 +354,18 @@ fun Application.module(testing: Boolean = false) {
     post(ADD_TXN) {
       val ts = tradingSheet()
       val params = call.receiveParameters()
-      val buyerUser =
-        ts.users.filter { it.name == params[BUYER_NAME.name] }
-          .firstOrNull() ?: throw InvalidRequestException("Buyer user")
-      val buyerAmount = params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount")
-      val buyerItem =
-        ts.items.filter { it.desc == params[BUYER_ITEM.name] }
-          .firstOrNull() ?: throw InvalidRequestException("Buyer item")
-      val sellerUser =
-        ts.users.filter { it.name == params[SELLER_NAME.name] }
-          .firstOrNull() ?: throw InvalidRequestException("Seller user")
-      val sellerAmount = params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount")
-      val sellerItem =
-        ts.items.filter { it.desc == params[SELLER_ITEM.name] }
-          .firstOrNull() ?: throw InvalidRequestException("Seller item")
+      val buyer =
+        TxnHalf(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
+                  ?: throw InvalidRequestException("Buyer user"),
+                ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount"),
+                           ts.items.firstOrNull { it.desc == params[BUYER_ITEM.name] } ?: throw InvalidRequestException(
+                             "Buyer item")))
+      val seller =
+        TxnHalf(ts.users.firstOrNull { it.name == params[SELLER_NAME.name] }
+                  ?: throw InvalidRequestException("Seller user"),
+                ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount"),
+                           ts.items.firstOrNull { it.desc == params[SELLER_ITEM.name] }
+                             ?: throw InvalidRequestException("Seller item")))
 
       if (credential == null)
         redirectTo { AUTH }
@@ -357,12 +373,27 @@ fun Application.module(testing: Boolean = false) {
         respondWith {
           page {
             choices()
-            h2 { +"Transaction added" }
-            ts.addItems(buyerUser, buyerAmount, buyerItem, sellerUser, sellerAmount, sellerItem)
-              .apply {
-                div { +first }
-                //pre { +second.toString() }
+            when {
+              buyer.user == seller.user -> {
+                h2 { style = "color:red;"; +"Error: names cannot be the same" }
+                addTransactionForm(ts, buyer, seller)
               }
+              buyer.itemAmount.amount <= 0 || seller.itemAmount.amount <= 0 -> {
+                h2 { style = "color:red;"; +"Error: both amounts must be a positive number" }
+                addTransactionForm(ts, buyer, seller)
+              }
+              buyer.itemAmount.item == seller.itemAmount.item -> {
+                h2 { style = "color:red;"; +"Error: items cannot be the same" }
+                addTransactionForm(ts, buyer, seller)
+              }
+              else -> {
+                h2 { +"Transaction added" }
+                ts.addTransaction(buyer, seller)
+                  .apply {
+                    div { +first }
+                  }
+              }
+            }
           }
         }
     }

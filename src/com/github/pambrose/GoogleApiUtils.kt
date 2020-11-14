@@ -19,8 +19,6 @@ import com.google.api.services.sheets.v4.SheetsScopes
 import com.google.api.services.sheets.v4.model.ClearValuesRequest
 import com.google.api.services.sheets.v4.model.ValueRange
 import java.io.File
-import java.io.FileNotFoundException
-import java.io.InputStreamReader
 import java.io.StringReader
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -51,9 +49,8 @@ object GoogleApiUtils {
       .build() ?: throw GoogleApiException("Null sheets service")
 
   fun getLocalAppCredentials(): Credential {
-    val inStream = Sheets::class.java.getResourceAsStream(CREDENTIALS_FILE_PATH)
-      ?: throw FileNotFoundException("Resource not found: $CREDENTIALS_FILE_PATH")
-    val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, InputStreamReader(inStream))
+    val strReader = StringReader(System.getenv("AUTH_CREDENTIALS"))
+    val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, strReader)
     val flow =
       GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
         .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
@@ -78,7 +75,7 @@ object GoogleApiUtils {
         clientSecrets.details.clientId,
         clientSecrets.details.clientSecret,
         authCode,
-        Config.BASE_URL)
+        BASE_URL)
         // Specify the same redirect URI that you use with your web
         // app. If you don't have a web version of your app, you can
         // specify an empty string.
