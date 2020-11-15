@@ -433,6 +433,10 @@ fun Application.module(testing: Boolean = false) {
 
       redirectTo { baseUrl }
     }
+
+    get("/favicon.ico") {
+      redirectTo { pathOf(STATIC_ROOT, "favicon.ico") }
+    }
   }
 }
 

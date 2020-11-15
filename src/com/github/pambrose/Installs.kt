@@ -44,7 +44,9 @@ internal object Installs : KLogging() {
       level = Level.INFO
 
       if (FILTER_LOG.getEnv(true))
-        filter { call -> call.request.path().startsWith("/") }
+        filter { call ->
+          call.request.path().let { it.startsWith("/") && !it.startsWith("/static/") }
+        }
 
       format { call ->
         val request = call.request

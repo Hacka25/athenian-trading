@@ -38,8 +38,8 @@ object GoogleApiUtils {
   private val JSON_FACTORY = JacksonFactory.getDefaultInstance()
   private val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
 
-  private val fromDate = LocalDate.parse("1899-12-30")
   private const val secsInDay = 24 * 60 * 60
+  private val fromDate = LocalDate.parse("1899-12-30")
 
   fun nowDateTime() =
     LocalDateTime.now()
