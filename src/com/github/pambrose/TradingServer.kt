@@ -35,14 +35,20 @@ import kotlin.time.TimeSource
 
 @Version(version = "1.0.0", date = "11/14/20")
 object TradingServer : KLogging() {
+  const val APP_TITLE = "Athenian Trading App"
+  const val userId = "owlsowls"
+  const val adminAuth = "adminAuth"
+  const val userAuth = "userAuth"
+  const val spreadsheetId = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
+
   private val startTime = TimeSource.Monotonic.markNow()
-  internal val serverSessionId = randomId(10)
-  internal val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
-  internal val upTime get() = startTime.elapsedNow()
-  internal const val APP_TITLE = "Athenian Trading App"
-  internal const val userId = "owlsowls"
-  internal var credential = AtomicReference<Credential>()
-  internal val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))
+  val serverSessionId = randomId(10)
+  val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
+  val upTime get() = startTime.elapsedNow()
+  val baseUrl = EnvVar.BASE_URL.getEnv("http://localhost:8080")
+  val googleCredential = AtomicReference<Credential>()
+  val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))
+  val authMap = mutableMapOf<String, User>()
 
   @JvmStatic
   fun main(args: Array<String>) {
@@ -71,7 +77,8 @@ object TradingServer : KLogging() {
 
     val environment = commandLineEnvironment(newArgs)
 
-    credential.set(authCodeFlow.loadCredential(userId).also { logger.info { "Credential found: ${it.isNotNull()}" } })
+    googleCredential.set(authCodeFlow.loadCredential(userId)
+                           .also { logger.info { "Credential found: ${it.isNotNull()}" } })
 
     embeddedServer(CIO, environment).start(wait = true)
   }

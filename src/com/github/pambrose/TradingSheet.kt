@@ -28,6 +28,8 @@ import com.github.pambrose.TradingServer.APP_TITLE
 import com.github.pambrose.TradingSheet.Ranges.*
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
+import mu.KLogging
+import kotlin.time.measureTimedValue
 
 class TradingSheet(private val ssId: String, credential: Credential) {
 
@@ -37,48 +39,84 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   val users get() = ServiceCache.users { fetchUsers() }
   fun refreshUsers() = ServiceCache.refreshUsers { fetchUsers() }
-  private fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).toUser() }
+  private fun fetchUsers() =
+    measureTimedValue {
+      service.query(ssId, UsersRange.name) { User(this[0] as String, this[1] as String) }
+    }.let {
+      logger.info { "Fetched users: ${it.duration}" }
+      it.value
+    }
 
   val items get() = ServiceCache.items { fetchItems() }
   fun refreshItems() = ServiceCache.refreshItems { fetchItems() }
-  private fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).toItem() }
-
-  val allocations
-    get() = service.query(ssId, AllocationsRange.name) {
-      TradeSide((this[0] as String).toUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).toItem()))
+  private fun fetchItems() =
+    measureTimedValue {
+      service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).toItem() }
+    }.let {
+      logger.info { "Fetched goods and services: ${it.duration}" }
+      it.value
     }
 
-  private val trades
-    get() = service.query(ssId, TradesRange.name) {
-      if (size == 7) {
-        val buyer = (this[1] as String).toUser()
-        val buyerAmount = (this[2] as String).toInt()
-        val buyerItem = (this[3] as String).toItem()
-        val seller = (this[4] as String).toUser()
-        val sellerAmount = (this[5] as String).toInt()
-        val sellerItem = (this[6] as String).toItem()
-        listOf(
-          TradeSide(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
-          TradeSide(seller, ItemAmount(buyerAmount, buyerItem)),
-          TradeSide(buyer, ItemAmount(sellerAmount, sellerItem)),
-          TradeSide(seller, ItemAmount(-1 * sellerAmount, sellerItem))
-        )
-      } else {
-        emptyList()
+  val allocations
+    get() =
+      measureTimedValue {
+        service.query(ssId, AllocationsRange.name) {
+          TradeSide((this[0] as String).toUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).toItem()))
+        }
+      }.let {
+        logger.info { "Fetched Allocations: ${it.duration}" }
+        it.value
       }
-    }.flatten()
 
-  fun clearTrades() = service.clear(ssId, TradesRange.name)
+  private val trades
+    get() =
+      measureTimedValue {
+        service.query(ssId, TradesRange.name) {
+          if (size == 7) {
+            val buyer = (this[1] as String).toUser()
+            val buyerAmount = (this[2] as String).toInt()
+            val buyerItem = (this[3] as String).toItem()
+            val seller = (this[4] as String).toUser()
+            val sellerAmount = (this[5] as String).toInt()
+            val sellerItem = (this[6] as String).toItem()
+            listOf(
+              TradeSide(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
+              TradeSide(seller, ItemAmount(buyerAmount, buyerItem)),
+              TradeSide(buyer, ItemAmount(sellerAmount, sellerItem)),
+              TradeSide(seller, ItemAmount(-1 * sellerAmount, sellerItem))
+            )
+          } else {
+            logger.error { "Missing trade data" }
+            emptyList()
+          }
+        }.flatten()
+      }.let {
+        logger.info { "Fetched Trades: ${it.duration}" }
+        it.value
+      }
+
+  fun clearTrades() =
+    measureTimedValue {
+      service.clear(ssId, TradesRange.name)
+    }.let {
+      logger.info { "Cleared trades: ${it.duration}" }
+      it.value
+    }
 
   fun addTrade(buyer: TradeSide, seller: TradeSide) =
-    service.append(ssId,
-                   TradesRange.name,
-                   listOf(listOf(nowDateTime(),
-                                 buyer.name, buyer.amount, buyer.desc,
-                                 seller.name, seller.amount, seller.desc)))
-      .let { response ->
-        "${buyer.user} traded ${buyer.itemAmount} for ${seller.itemAmount} with ${seller.user}" to response
-      }
+    measureTimedValue {
+      service.append(ssId,
+                     TradesRange.name,
+                     listOf(listOf(nowDateTime(),
+                                   buyer.name, buyer.amount, buyer.desc,
+                                   seller.name, seller.amount, seller.desc)))
+        .let { response ->
+          "${buyer.user} traded ${buyer.itemAmount} for ${seller.itemAmount} with ${seller.user}" to response
+        }
+    }.let {
+      logger.info { "Added a trade: ${it.duration}" }
+      it.value
+    }
 
   fun calcBalances(): Map<User, List<ItemAmount>> =
     (allocations + trades)
@@ -98,11 +136,18 @@ class TradingSheet(private val ssId: String, credential: Credential) {
             }
         }
 
-        service
-          .apply {
-            val range = BalancesRange.name
-            clear(ssId, range)
-            append(ssId, range, inserts, insertDataOption = OVERWRITE)
-          }
+        measureTimedValue {
+          service
+            .apply {
+              val range = BalancesRange.name
+              clear(ssId, range)
+              append(ssId, range, inserts, insertDataOption = OVERWRITE)
+            }
+        }.let {
+          logger.info { "Calculated balances: ${it.duration}" }
+          it.value
+        }
       }
+
+  companion object : KLogging()
 }

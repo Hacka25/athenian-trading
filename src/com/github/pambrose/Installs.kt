@@ -18,18 +18,23 @@
 package com.github.pambrose
 
 import com.github.pambrose.EnvVar.FILTER_LOG
+import com.github.pambrose.TradingServer.adminAuth
+import com.github.pambrose.TradingServer.authMap
+import com.github.pambrose.TradingServer.userAuth
 import com.github.pambrose.common.features.HerokuHttpsRedirect
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.simpleClassName
 import io.ktor.application.*
+import io.ktor.auth.*
 import io.ktor.features.*
 import io.ktor.http.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import mu.KLogging
 import org.slf4j.event.Level
+import java.util.*
 
-internal object Installs : KLogging() {
+object Installs : KLogging() {
 
   fun Application.installs(
     production: Boolean,
@@ -75,6 +80,30 @@ internal object Installs : KLogging() {
       }
     }
 
+    install(Authentication) {
+      basic(name = adminAuth) {
+        realm = "Ktor Server"
+        validate { cred ->
+          if (cred.name == "admin" && cred.password == "admin") UserIdPrincipal(cred.name) else null
+        }
+      }
+
+      basic(name = userAuth) {
+        realm = "Ktor Server"
+        validate { cred ->
+          logger.info { "Looking at: ${cred.name}" }
+          val users = tradingSheet().users
+          val user = users.firstOrNull { it.name == cred.name }
+          if (user?.password == cred.password) {
+            val str = "${cred.name}:${cred.password}"
+            val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
+            authMap[encodedString] = user
+            UserIdPrincipal(user.name)
+          } else null
+        }
+      }
+    }
+
     install(StatusPages) {
       exception<Throwable> { cause ->
         logger.info(cause) { "Throwable caught: ${cause.simpleClassName}" }
@@ -116,6 +145,5 @@ internal object Installs : KLogging() {
     } else {
       logger.info { "Not installing HerokuHttpsRedirect" }
     }
-
   }
 }

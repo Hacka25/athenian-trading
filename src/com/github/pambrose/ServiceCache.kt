@@ -17,30 +17,33 @@
 
 package com.github.pambrose
 
+import com.github.pambrose.common.util.isNull
+import java.util.concurrent.atomic.AtomicReference
+
 object ServiceCache {
 
-  private lateinit var userCache: List<User>
-  private lateinit var itemCache: List<Item>
+  private val userCache = AtomicReference<List<User>>()
+  private val itemCache = AtomicReference<List<Item>>()
 
   fun users(action: () -> List<User>): List<User> {
-    if (!this::userCache.isInitialized)
-      userCache = action()
-    return userCache
+    if (userCache.get().isNull())
+      userCache.compareAndSet(null, action())
+    return userCache.get()
   }
 
   fun refreshUsers(action: () -> List<User>): List<User> {
-    userCache = action()
-    return userCache
+    userCache.set(action())
+    return userCache.get()
   }
 
   fun items(action: () -> List<Item>): List<Item> {
-    if (!this::itemCache.isInitialized)
-      itemCache = action()
-    return itemCache
+    if (itemCache.get().isNull())
+      itemCache.compareAndSet(null, action())
+    return itemCache.get()
   }
 
   fun refreshItems(action: () -> List<Item>): List<Item> {
-    itemCache = action()
-    return itemCache
+    itemCache.set(action())
+    return itemCache.get()
   }
 }

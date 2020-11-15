@@ -17,11 +17,11 @@
 
 package com.github.pambrose
 
-data class User(val name: String) {
+data class User(val name: String, val password: String) {
   override fun toString() = name
 
   companion object {
-    fun String.toUser() = User(this)
+    fun String.toUser() = User(this, "")
   }
 }
 
