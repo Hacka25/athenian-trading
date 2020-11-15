@@ -1,5 +1,6 @@
 package com.github.pambrose
 
+import com.github.pambrose.Constants.APP_TITLE
 import com.github.pambrose.GoogleApiUtils.append
 import com.github.pambrose.GoogleApiUtils.clear
 import com.github.pambrose.GoogleApiUtils.nowDateTime
@@ -10,8 +11,6 @@ import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.TradingSheet.Ranges.*
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
-
-private const val APPLICATION_NAME = "Athenian Trading App"
 
 private object ServiceCache {
   private lateinit var userCache: List<User>
@@ -43,7 +42,7 @@ private object ServiceCache {
 class TradingSheet(private val ssId: String, credential: Credential) {
   enum class Ranges { UsersRange, GoodsAndServicesRange, AllocationsRange, TradesRange, BalancesRange }
 
-  private val service = sheetsService(APPLICATION_NAME, credential)
+  private val service = sheetsService(APP_TITLE, credential)
 
   val users get() = ServiceCache.users(this)
 
