@@ -41,8 +41,7 @@ import kotlin.time.seconds
 
 object Config {
   const val SS_ID = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
-
-  const val BASE_URL = "http://localhost:8080"
+  val BASE_URL = System.getenv("BASE_URL") ?: "http://localhost:8080"
   //const val BASE_URL = "https://athenian-trading-app.herokuapp.com"
 }
 
