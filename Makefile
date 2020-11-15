@@ -23,14 +23,14 @@ cc:
 run:
 	./gradlew run
 
-local-reset:
-	cd flyway; make local-reset
-
-do-reset:
-	cd flyway; make do-reset
-
 tests:
 	./gradlew check
+
+heroku-logs:
+	heroku logs --tail
+
+heroku-open:
+	heroku open
 
 versioncheck:
 	./gradlew dependencyUpdates

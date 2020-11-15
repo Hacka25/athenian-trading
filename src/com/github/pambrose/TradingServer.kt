@@ -14,7 +14,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.time.TimeSource
 
-fun main(args: Array<String>) = TradingServer.start(args)
 
 @Version(version = "1.0.0", date = "11/14/20")
 object TradingServer : KLogging() {
@@ -23,6 +22,11 @@ object TradingServer : KLogging() {
   internal val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   internal val upTime get() = startTime.elapsedNow()
   internal var credential: Credential? = null
+
+  @JvmStatic
+  fun main(args: Array<String>) {
+    start(args)
+  }
 
   fun start(args: Array<String>) {
 
