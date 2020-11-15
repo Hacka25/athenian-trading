@@ -6,23 +6,27 @@ import com.github.pambrose.Constants.ADD_TRADE
 import com.github.pambrose.Constants.ADMIN
 import com.github.pambrose.Constants.ALLOCATIONS
 import com.github.pambrose.Constants.APP_TITLE
-import com.github.pambrose.Constants.AUTH
 import com.github.pambrose.Constants.CALC
 import com.github.pambrose.Constants.CLEAR_TRADES
 import com.github.pambrose.Constants.ITEMS
+import com.github.pambrose.Constants.OAUTH_CB
 import com.github.pambrose.Constants.PAUSE
 import com.github.pambrose.Constants.RANDOM_TRADE
 import com.github.pambrose.Constants.REFRESH_ITEMS
 import com.github.pambrose.Constants.REFRESH_USERS
 import com.github.pambrose.Constants.USERS
-import com.github.pambrose.GoogleApiUtils.getLocalAppCredentials
+import com.github.pambrose.GoogleApiUtils.googleAuthPageUrl
 import com.github.pambrose.Installs.installs
 import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.ParamNames.*
 import com.github.pambrose.TradingServer.credential
+import com.github.pambrose.TradingServer.flow
+import com.github.pambrose.TradingServer.serverSessionId
+import com.github.pambrose.TradingServer.userId
 import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
+import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
@@ -38,8 +42,8 @@ import kotlin.time.seconds
 object Config {
   const val SS_ID = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
 
-  //const val BASE_URL = "http://localhost:8080"
-  const val BASE_URL = "https://athenian-trading-app.herokuapp.com"
+  const val BASE_URL = "http://localhost:8080"
+  //const val BASE_URL = "https://athenian-trading-app.herokuapp.com"
 }
 
 enum class Actions {
@@ -58,7 +62,7 @@ object Constants {
 
   const val ADMIN = "/admin"
   const val ADD_TRADE = "/trade"
-  const val AUTH = "/auth"
+  const val OAUTH_CB = "/oauth-cd"
   const val PAUSE = "/pause"
 
   const val APP_TITLE = "Athenian Trading App"
@@ -71,12 +75,8 @@ fun BODY.rootChoices() {
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
-    if (credential == null) {
-      li { a { href = AUTH; +"Authorize app" } }
-    } else {
-      li { a { href = ADMIN; +"Admin tasks" } }
-      li { a { href = ADD_TRADE; +"Add a trade" } }
-    }
+    li { a { href = ADMIN; +"Admin tasks" } }
+    li { a { href = ADD_TRADE; +"Add a trade" } }
   }
 }
 
@@ -85,23 +85,19 @@ fun BODY.adminChoices() {
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
-    if (credential == null) {
-      li { a { href = AUTH; +"Authorize app" } }
-    } else {
-      li {
-        a { href = "$ADMIN/$USERS"; +"Users" }
-        rawHtml(nbsp.text); rawHtml(nbsp.text)
-        a { href = "$ADMIN/$REFRESH_USERS"; +"(Refresh)" }
-      }
-      li {
-        a { href = "$ADMIN/$ITEMS"; +"Goods and services" }
-        rawHtml(nbsp.text); rawHtml(nbsp.text)
-        a { href = "$ADMIN/$REFRESH_ITEMS"; +"(Refresh)" }
-      }
-      li { a { href = "$ADMIN/$ALLOCATIONS"; +"Allocations" } }
-      li { a { href = "$ADMIN/$RANDOM_TRADE"; +"Add random trade" } }
-      li { a { href = "$ADMIN/$CALC"; +"Calculate balances" } }
+    li {
+      a { href = "$ADMIN/$USERS"; +"Users" }
+      rawHtml(nbsp.text); rawHtml(nbsp.text)
+      a { href = "$ADMIN/$REFRESH_USERS"; +"(Refresh)" }
     }
+    li {
+      a { href = "$ADMIN/$ITEMS"; +"Goods and services" }
+      rawHtml(nbsp.text); rawHtml(nbsp.text)
+      a { href = "$ADMIN/$REFRESH_ITEMS"; +"(Refresh)" }
+    }
+    li { a { href = "$ADMIN/$ALLOCATIONS"; +"Allocations" } }
+    li { a { href = "$ADMIN/$RANDOM_TRADE"; +"Add random trade" } }
+    li { a { href = "$ADMIN/$CALC"; +"Calculate balances" } }
   }
 }
 
@@ -110,11 +106,7 @@ fun BODY.tradeChoices() {
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
-    if (credential == null) {
-      li { a { href = AUTH; +"Authorize app" } }
-    } else {
-      //li { a { href = ADD_TRADE; +"Add trade" } }
-    }
+    //li { a { href = ADD_TRADE; +"Add trade" } }
   }
 }
 
@@ -140,12 +132,13 @@ fun page(backLink: Boolean = true, block: BODY.() -> Unit) =
       }
     }
 
+
 @Suppress("unused")
 fun Application.module(testing: Boolean = false) {
 
-  installs()
+  val redirectUrl = "$BASE_URL$OAUTH_CB"
 
-  fun tradingSheet() = TradingSheet(SS_ID, credential ?: throw MissingCredentials("No credentials"))
+  fun tradingSheet() = TradingSheet(SS_ID, credential ?: throw MissingCredential("No credential"))
 
   fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeHalf, seller: TradeHalf) {
     form {
@@ -218,19 +211,20 @@ fun Application.module(testing: Boolean = false) {
 
   }
 
+  fun authPageUrl() = googleAuthPageUrl(flow, serverSessionId, redirectUrl)
+
+  installs()
+
   routing {
     get("/") {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page(false) {
-            rootChoices()
-          }
+      respondWith {
+        page(false) {
+          rootChoices()
         }
+      }
     }
 
-    // Call this to give credentials a chance to be assigned
+    // Call this to give credential a chance to be assigned
     get(PAUSE) {
       delay(1.seconds)
       redirectTo { BASE_URL }
@@ -238,7 +232,7 @@ fun Application.module(testing: Boolean = false) {
 
     get(ADMIN) {
       if (credential == null)
-        redirectTo { AUTH }
+        redirectTo { authPageUrl() }
       else
         respondWith {
           page {
@@ -249,7 +243,7 @@ fun Application.module(testing: Boolean = false) {
 
     get<Admin> { arg ->
       if (credential == null)
-        redirectTo { AUTH }
+        redirectTo { authPageUrl() }
       else
         respondWith {
           page {
@@ -334,10 +328,12 @@ fun Application.module(testing: Boolean = false) {
     }
 
     get(ADD_TRADE) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
+      respondWith {
+        if (credential == null)
+          page {
+            h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
+          }
+        else {
           val ts = tradingSheet()
           val params = call.request.queryParameters
           val buyer =
@@ -355,6 +351,7 @@ fun Application.module(testing: Boolean = false) {
             addTradeForm(ts, buyer, seller)
           }
         }
+      }
     }
 
     post(ADD_TRADE) {
@@ -375,7 +372,7 @@ fun Application.module(testing: Boolean = false) {
                                ?: throw InvalidRequestException("Seller item")))
 
       if (credential == null)
-        redirectTo { AUTH }
+        redirectTo { authPageUrl() }
       else
         respondWith {
           page {
@@ -404,14 +401,19 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 
-    get(AUTH) {
-      try {
-        credential = getLocalAppCredentials()
-        redirectTo { BASE_URL }
-      } catch (e: Throwable) {
-        e.printStackTrace()
-        throw e
-      }
+    get(OAUTH_CB) {
+      val params = call.request.queryParameters
+      val code = params["code"]
+      val state = params["state"]
+      val scope = params["scope"]
+
+      check(state == serverSessionId)
+      check(scope == SheetsScopes.SPREADSHEETS)
+
+      val tokenRequest = flow.newTokenRequest(code).setRedirectUri(redirectUrl).execute()
+      credential = flow.createAndStoreCredential(tokenRequest, userId)
+
+      redirectTo { BASE_URL }
     }
   }
 }

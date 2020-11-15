@@ -1,15 +1,15 @@
 package com.github.pambrose
 
-import com.github.pambrose.GoogleApiUtils.TOKENS_DIRECTORY_PATH
+import com.github.pambrose.GoogleApiUtils.codeFlow
 import com.github.pambrose.common.util.Version
 import com.github.pambrose.common.util.Version.Companion.versionDesc
 import com.github.pambrose.common.util.getBanner
+import com.github.pambrose.common.util.isNotNull
 import com.github.pambrose.common.util.randomId
 import com.google.api.client.auth.oauth2.Credential
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import mu.KLogging
-import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.time.TimeSource
@@ -21,7 +21,10 @@ object TradingServer : KLogging() {
   internal val serverSessionId = randomId(10)
   internal val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   internal val upTime get() = startTime.elapsedNow()
+  internal val userId = "owlsowls"
   internal var credential: Credential? = null
+
+  internal val flow = codeFlow()
 
   @JvmStatic
   fun main(args: Array<String>) {
@@ -50,14 +53,7 @@ object TradingServer : KLogging() {
 
     val environment = commandLineEnvironment(newArgs)
 
-
-    if (File("$TOKENS_DIRECTORY_PATH/StoredCredential").isFile)
-      try {
-        credential = GoogleApiUtils.getLocalAppCredentials()
-        logger.info { "Credentials granted" }
-      } catch (e: Throwable) {
-        logger.warn { "Invalid credentials" }
-      }
+    credential = flow.loadCredential(userId).also { logger.info { "Credential found: ${it.isNotNull()}" } }
 
     embeddedServer(CIO, environment).start(wait = true)
   }
