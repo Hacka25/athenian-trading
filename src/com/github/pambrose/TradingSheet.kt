@@ -1,3 +1,20 @@
+/*
+ * Copyright © 2020 Paul Ambrose (pambrose@mac.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package com.github.pambrose
 
 import com.github.pambrose.Constants.APP_TITLE
@@ -12,59 +29,28 @@ import com.github.pambrose.TradingSheet.Ranges.*
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
 
-private object ServiceCache {
-  private lateinit var userCache: List<User>
-  private lateinit var itemCache: List<Item>
-
-  fun users(tradingSheet: TradingSheet): List<User> {
-    if (!this::userCache.isInitialized)
-      userCache = tradingSheet.fetchUsers()
-    return userCache
-  }
-
-  fun refreshUsers(tradingSheet: TradingSheet): List<User> {
-    userCache = tradingSheet.fetchUsers()
-    return userCache
-  }
-
-  fun items(tradingSheet: TradingSheet): List<Item> {
-    if (!this::itemCache.isInitialized)
-      itemCache = tradingSheet.fetchItems()
-    return itemCache
-  }
-
-  fun refreshItems(tradingSheet: TradingSheet): List<Item> {
-    itemCache = tradingSheet.fetchItems()
-    return itemCache
-  }
-}
-
 class TradingSheet(private val ssId: String, credential: Credential) {
+
   enum class Ranges { UsersRange, GoodsAndServicesRange, AllocationsRange, TradesRange, BalancesRange }
 
-  private val service = sheetsService(APP_TITLE, credential)
+  private val service by lazy { sheetsService(APP_TITLE, credential) }
 
-  val users get() = ServiceCache.users(this)
+  val users get() = ServiceCache.users { fetchUsers() }
+  fun refreshUsers() = ServiceCache.refreshUsers { fetchUsers() }
+  private fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).toUser() }
 
-  fun refreshUsers() = ServiceCache.refreshUsers(this)
-
-  internal fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).toUser() }
-
-  val items get() = ServiceCache.items(this)
-
-  fun refreshItems() = ServiceCache.refreshItems(this)
-
-  internal fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).toItem() }
+  val items get() = ServiceCache.items { fetchItems() }
+  fun refreshItems() = ServiceCache.refreshItems { fetchItems() }
+  private fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).toItem() }
 
   val allocations
     get() = service.query(ssId, AllocationsRange.name) {
-      TradeHalf((this[0] as String).toUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).toItem()))
+      TradeSide((this[0] as String).toUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).toItem()))
     }
 
   private val trades
     get() = service.query(ssId, TradesRange.name) {
       if (size == 7) {
-        val date = this[0]
         val buyer = (this[1] as String).toUser()
         val buyerAmount = (this[2] as String).toInt()
         val buyerItem = (this[3] as String).toItem()
@@ -72,75 +58,51 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         val sellerAmount = (this[5] as String).toInt()
         val sellerItem = (this[6] as String).toItem()
         listOf(
-          TradeHalf(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
-          TradeHalf(seller, ItemAmount(buyerAmount, buyerItem)),
-          TradeHalf(buyer, ItemAmount(sellerAmount, sellerItem)),
-          TradeHalf(seller, ItemAmount(-1 * sellerAmount, sellerItem))
+          TradeSide(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
+          TradeSide(seller, ItemAmount(buyerAmount, buyerItem)),
+          TradeSide(buyer, ItemAmount(sellerAmount, sellerItem)),
+          TradeSide(seller, ItemAmount(-1 * sellerAmount, sellerItem))
         )
       } else {
         emptyList()
       }
     }.flatten()
 
-  fun clearTrades() =
-    service.clear(ssId, TradesRange.name)
+  fun clearTrades() = service.clear(ssId, TradesRange.name)
 
-  fun calcBalances(): Map<User, List<ItemAmount>> =
-    (allocations + trades)
-      .groupBy({ it.user to it.itemAmount.item }, { it.itemAmount.amount })
-      .map { TradeHalf(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
-      .filter { it.itemAmount.amount != 0 }
-      .groupBy({ it.user }, { ItemAmount(it.itemAmount.amount, it.itemAmount.item) })
-      .toSortedMap(compareBy { it.name })
-      .also { map ->
-        val insertList = mutableListOf<List<Any>>()
-        val nameList = mutableListOf<String>()
-        map.forEach { (k, v) ->
-          v.sortedWith(compareBy { it.item.desc })
-            .forEach { itemAmount ->
-              insertList += listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
-                                   itemAmount.amount,
-                                   itemAmount.item.desc)
-              nameList += k.name
-            }
-        }
-        service.apply {
-          val range = BalancesRange.name
-          clear(ssId, range)
-          append(ssId, range, insertList, insertDataOption = OVERWRITE)
-        }
-      }
-
-  fun addTrade(buyer: TradeHalf, seller: TradeHalf) =
-    service.append(
-      ssId,
-      TradesRange.name,
-      listOf(listOf(nowDateTime(),
-                    buyer.user.name, buyer.itemAmount.amount, buyer.itemAmount.item.desc,
-                    seller.user.name, seller.itemAmount.amount, seller.itemAmount.item.desc)))
+  fun addTrade(buyer: TradeSide, seller: TradeSide) =
+    service.append(ssId,
+                   TradesRange.name,
+                   listOf(listOf(nowDateTime(),
+                                 buyer.name, buyer.amount, buyer.desc,
+                                 seller.name, seller.amount, seller.desc)))
       .let { response ->
         "${buyer.user} traded ${buyer.itemAmount} for ${seller.itemAmount} with ${seller.user}" to response
       }
+
+  fun calcBalances(): Map<User, List<ItemAmount>> =
+    (allocations + trades)
+      .groupBy({ it.user to it.item }, { it.amount })
+      .map { TradeSide(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
+      .filter { it.amount != 0 }
+      .groupBy({ it.user }, { ItemAmount(it.amount, it.item) })
+      .toSortedMap(compareBy { it.name })
+      .also { map ->
+        val inserts = mutableListOf<List<Any>>()
+        val names = mutableListOf<String>()
+        map.forEach { (user, list) ->
+          list.sortedWith(compareBy { it.desc })
+            .forEach { itemAmount ->
+              inserts += listOf(user.name.takeUnless { names.contains(it) } ?: "", itemAmount.amount, itemAmount.desc)
+              names += user.name
+            }
+        }
+
+        service
+          .apply {
+            val range = BalancesRange.name
+            clear(ssId, range)
+            append(ssId, range, inserts, insertDataOption = OVERWRITE)
+          }
+      }
 }
-
-data class User(val name: String) {
-  override fun toString() = name
-
-  companion object {
-    fun String.toUser() = User(this)
-  }
-}
-
-data class Item(val desc: String) {
-  override fun toString() = desc
-
-  companion object {
-    fun String.toItem() = Item(this)
-  }
-}
-
-data class ItemAmount(val amount: Int, val item: Item) {
-  override fun toString() = "$amount $item"
-}
-
-data class TradeHalf(val user: User, val itemAmount: ItemAmount)

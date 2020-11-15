@@ -1,73 +1,79 @@
+/*
+ * Copyright © 2020 Paul Ambrose (pambrose@mac.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package com.github.pambrose
 
-import com.github.pambrose.Config.BASE_URL
-import com.github.pambrose.Config.SS_ID
-import com.github.pambrose.Constants.ADD_TRADE
-import com.github.pambrose.Constants.ADMIN
-import com.github.pambrose.Constants.ALLOCATIONS
+import com.github.pambrose.Actions.*
+import com.github.pambrose.Actions.Companion.asAction
+import com.github.pambrose.Config.baseUrl
+import com.github.pambrose.Config.spreadsheetId
 import com.github.pambrose.Constants.APP_TITLE
-import com.github.pambrose.Constants.CALC
-import com.github.pambrose.Constants.CLEAR_TRADES
-import com.github.pambrose.Constants.ITEMS
-import com.github.pambrose.Constants.OAUTH_CB
-import com.github.pambrose.Constants.PAUSE
-import com.github.pambrose.Constants.RANDOM_TRADE
-import com.github.pambrose.Constants.REFRESH_ITEMS
-import com.github.pambrose.Constants.REFRESH_USERS
-import com.github.pambrose.Constants.USERS
+import com.github.pambrose.EnvVar.*
 import com.github.pambrose.GoogleApiUtils.googleAuthPageUrl
 import com.github.pambrose.Installs.installs
 import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.ParamNames.*
+import com.github.pambrose.Paths.ADD_TRADE
+import com.github.pambrose.Paths.ADMIN
+import com.github.pambrose.Paths.OAUTH_CB
+import com.github.pambrose.TradingServer.authCodeFlow
 import com.github.pambrose.TradingServer.credential
-import com.github.pambrose.TradingServer.flow
 import com.github.pambrose.TradingServer.serverSessionId
 import com.github.pambrose.TradingServer.userId
 import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
+import com.github.pambrose.common.util.isNull
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import io.ktor.routing.*
-import kotlinx.coroutines.delay
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
 import kotlinx.html.stream.createHTML
 import java.io.PrintWriter
 import java.io.StringWriter
-import kotlin.time.seconds
 
 object Config {
-  const val SS_ID = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
-  val BASE_URL = System.getenv("BASE_URL") ?: "http://localhost:8080"
-  //const val BASE_URL = "https://athenian-trading-app.herokuapp.com"
-}
-
-enum class Actions {
-
-}
-
-object Constants {
-  const val USERS = "users"
-  const val REFRESH_USERS = "refresh-users"
-  const val ITEMS = "items"
-  const val REFRESH_ITEMS = "refresh-items"
-  const val ALLOCATIONS = "allocations"
-  const val RANDOM_TRADE = "random"
-  const val CLEAR_TRADES = "clear"
-  const val CALC = "calc"
-
-  const val ADMIN = "/admin"
-  const val ADD_TRADE = "/trade"
-  const val OAUTH_CB = "/oauth-cd"
-  const val PAUSE = "/pause"
-
-  const val APP_TITLE = "Athenian Trading App"
+  const val spreadsheetId = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
+  val baseUrl = BASE_URL.getEnv("http://localhost:8080")
 }
 
 enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
+
+enum class Actions(val action: String) {
+  USERS("users"), REFRESH_USERS("refresh-users"), ITEMS("items"),
+  REFRESH_ITEMS("refresh-items"), ALLOCATIONS("allocations"),
+  RANDOM_TRADE("random"), CLEAR_TRADES("clear"), CALC("calc");
+
+  fun asPath() = "$ADMIN/$action"
+
+  companion object {
+    fun String.asAction() =
+      values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
+  }
+}
+
+object Paths {
+  const val ADMIN = "/admin"
+  const val ADD_TRADE = "/trade"
+  const val OAUTH_CB = "/oauth-cd"
+}
 
 fun BODY.rootChoices(errorMsg: String = "") {
   h1 { +APP_TITLE }
@@ -88,18 +94,18 @@ fun BODY.adminChoices() {
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
     li {
-      a { href = "$ADMIN/$USERS"; +"Users" }
+      a { href = USERS.asPath(); +"Users" }
       rawHtml(nbsp.text); rawHtml(nbsp.text)
-      a { href = "$ADMIN/$REFRESH_USERS"; +"(Refresh)" }
+      a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
     }
     li {
-      a { href = "$ADMIN/$ITEMS"; +"Goods and services" }
+      a { href = ITEMS.asPath(); +"Goods and services" }
       rawHtml(nbsp.text); rawHtml(nbsp.text)
-      a { href = "$ADMIN/$REFRESH_ITEMS"; +"(Refresh)" }
+      a { href = REFRESH_ITEMS.asPath(); +"(Refresh)" }
     }
-    li { a { href = "$ADMIN/$ALLOCATIONS"; +"Allocations" } }
-    li { a { href = "$ADMIN/$RANDOM_TRADE"; +"Add random trade" } }
-    li { a { href = "$ADMIN/$CALC"; +"Calculate balances" } }
+    li { a { href = ALLOCATIONS.asPath(); +"Allocations" } }
+    li { a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
+    li { a { href = CALC.asPath(); +"Calculate balances" } }
   }
 }
 
@@ -135,14 +141,13 @@ fun page(backLink: Boolean = true, block: BODY.() -> Unit) =
     }
 
 
-@Suppress("unused")
 fun Application.module(testing: Boolean = false) {
 
-  val redirectUrl = "$BASE_URL$OAUTH_CB"
+  val redirectUrl = "$baseUrl$OAUTH_CB"
 
-  fun tradingSheet() = TradingSheet(SS_ID, credential ?: throw MissingCredential("No credential"))
+  fun tradingSheet() = TradingSheet(spreadsheetId, credential.get() ?: throw MissingCredential("No credential"))
 
-  fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeHalf, seller: TradeHalf) {
+  fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeSide, seller: TradeSide) {
     form {
       action = ADD_TRADE
       method = FormMethod.post
@@ -213,9 +218,12 @@ fun Application.module(testing: Boolean = false) {
 
   }
 
-  fun authPageUrl() = googleAuthPageUrl(flow, serverSessionId, redirectUrl)
+  fun authPageUrl() = googleAuthPageUrl(authCodeFlow, serverSessionId, redirectUrl)
 
-  installs()
+  installs(!baseUrl.contains("localhost"),
+           REDIRECT_HOSTNAME.getEnv(default = ""),
+           FORWARDED_ENABLED.getEnv(default = false),
+           XFORWARDED_ENABLED.getEnv(false))
 
   routing {
     get("/") {
@@ -226,14 +234,8 @@ fun Application.module(testing: Boolean = false) {
       }
     }
 
-    // Call this to give credential a chance to be assigned
-    get(PAUSE) {
-      delay(1.seconds)
-      redirectTo { BASE_URL }
-    }
-
     get(ADMIN) {
-      if (credential == null)
+      if (credential.get().isNull())
         redirectTo { authPageUrl() }
       else
         respondWith {
@@ -244,14 +246,14 @@ fun Application.module(testing: Boolean = false) {
     }
 
     get<Admin> { arg ->
-      if (credential == null)
+      if (credential.get().isNull())
         redirectTo { authPageUrl() }
       else
         respondWith {
           page {
             adminChoices()
             val ts = tradingSheet()
-            when (arg.action) {
+            when (arg.action.asAction()) {
               USERS -> {
                 h2 { +"Users" }
                 table { ts.users.forEach { tr { td { +it.name } } } }
@@ -285,8 +287,8 @@ fun Application.module(testing: Boolean = false) {
               RANDOM_TRADE -> {
                 h2 { +"Random trade added" }
 
-                val buyer = TradeHalf(ts.users.random(), ItemAmount((1..10).random(), ts.items.random()))
-                val seller = TradeHalf((ts.users - buyer.user).random(),
+                val buyer = TradeSide(ts.users.random(), ItemAmount((1..10).random(), ts.items.random()))
+                val seller = TradeSide((ts.users - buyer.user).random(),
                                        ItemAmount((1..10).random(), (ts.items - buyer.itemAmount.item).random()))
                 ts.addTrade(buyer, seller)
                   .apply {
@@ -311,7 +313,7 @@ fun Application.module(testing: Boolean = false) {
                                 style = "padding-left:10;padding-right:5;"
                                 b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
                               }
-                              td { +"${it}" }
+                              td { +"$it" }
                             }
                             nameList += row.key.name
                           }
@@ -323,7 +325,6 @@ fun Application.module(testing: Boolean = false) {
                     }
                   }
               }
-              else -> +"Invalid request: ${arg.action}"
             }
           }
         }
@@ -331,7 +332,7 @@ fun Application.module(testing: Boolean = false) {
 
     get(ADD_TRADE) {
       respondWith {
-        if (credential == null)
+        if (credential.get().isNull())
           page {
             h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
           }
@@ -339,11 +340,11 @@ fun Application.module(testing: Boolean = false) {
           val ts = tradingSheet()
           val params = call.request.queryParameters
           val buyer =
-            TradeHalf(params[BUYER_NAME.name]?.toUser() ?: ts.users[0],
+            TradeSide(params[BUYER_NAME.name]?.toUser() ?: ts.users[0],
                       ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
                                  params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
           val seller =
-            TradeHalf(params[SELLER_NAME.name]?.toUser() ?: ts.users[0],
+            TradeSide(params[SELLER_NAME.name]?.toUser() ?: ts.users[0],
                       ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
                                  params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
 
@@ -360,20 +361,20 @@ fun Application.module(testing: Boolean = false) {
       val ts = tradingSheet()
       val params = call.receiveParameters()
       val buyer =
-        TradeHalf(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
+        TradeSide(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
                     ?: throw InvalidRequestException("Buyer user"),
                   ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount"),
                              ts.items.firstOrNull { it.desc == params[BUYER_ITEM.name] }
                                ?: throw InvalidRequestException(
                                  "Buyer item")))
       val seller =
-        TradeHalf(ts.users.firstOrNull { it.name == params[SELLER_NAME.name] }
+        TradeSide(ts.users.firstOrNull { it.name == params[SELLER_NAME.name] }
                     ?: throw InvalidRequestException("Seller user"),
                   ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount"),
                              ts.items.firstOrNull { it.desc == params[SELLER_ITEM.name] }
                                ?: throw InvalidRequestException("Seller item")))
 
-      if (credential == null)
+      if (credential.get().isNull())
         redirectTo { authPageUrl() }
       else
         respondWith {
@@ -412,10 +413,10 @@ fun Application.module(testing: Boolean = false) {
       check(state == serverSessionId)
       check(scope == SheetsScopes.SPREADSHEETS)
 
-      val tokenRequest = flow.newTokenRequest(code).setRedirectUri(redirectUrl).execute()
-      credential = flow.createAndStoreCredential(tokenRequest, userId)
+      val tokenRequest = authCodeFlow.newTokenRequest(code).setRedirectUri(redirectUrl).execute()
+      credential.set(authCodeFlow.createAndStoreCredential(tokenRequest, userId))
 
-      redirectTo { BASE_URL }
+      redirectTo { baseUrl }
     }
   }
 }
@@ -424,3 +425,4 @@ fun Application.module(testing: Boolean = false) {
 internal data class Admin(val action: String)
 
 fun HTMLTag.rawHtml(html: String) = unsafe { raw(html) }
+

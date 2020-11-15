@@ -1,19 +1,37 @@
+/*
+ * Copyright © 2020 Paul Ambrose (pambrose@mac.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package com.github.pambrose
 
-import com.github.pambrose.GoogleApiUtils.codeFlow
+import com.github.pambrose.GoogleApiUtils.authorizationCodeFlow
 import com.github.pambrose.common.util.Version
 import com.github.pambrose.common.util.Version.Companion.versionDesc
 import com.github.pambrose.common.util.getBanner
 import com.github.pambrose.common.util.isNotNull
 import com.github.pambrose.common.util.randomId
 import com.google.api.client.auth.oauth2.Credential
+import com.google.api.services.sheets.v4.SheetsScopes.SPREADSHEETS
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import mu.KLogging
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.TimeSource
-
 
 @Version(version = "1.0.0", date = "11/14/20")
 object TradingServer : KLogging() {
@@ -21,10 +39,9 @@ object TradingServer : KLogging() {
   internal val serverSessionId = randomId(10)
   internal val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   internal val upTime get() = startTime.elapsedNow()
-  internal val userId = "owlsowls"
-  internal var credential: Credential? = null
-
-  internal val flow = codeFlow()
+  internal const val userId = "owlsowls"
+  internal var credential = AtomicReference<Credential>()
+  internal val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))
 
   @JvmStatic
   fun main(args: Array<String>) {
@@ -53,8 +70,13 @@ object TradingServer : KLogging() {
 
     val environment = commandLineEnvironment(newArgs)
 
-    credential = flow.loadCredential(userId).also { logger.info { "Credential found: ${it.isNotNull()}" } }
+    credential.set(authCodeFlow.loadCredential(userId).also { logger.info { "Credential found: ${it.isNotNull()}" } })
 
     embeddedServer(CIO, environment).start(wait = true)
   }
 }
+
+class MissingCredential(msg: String) : Exception(msg)
+class GoogleApiException(msg: String) : Exception(msg)
+class InvalidRequestException(msg: String) : Exception(msg)
+class InvalidConfigurationException(msg: String) : Exception(msg)
