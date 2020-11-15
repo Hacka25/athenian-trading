@@ -4,6 +4,7 @@ import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.simpleClassName
 import io.ktor.application.*
 import io.ktor.features.*
+import io.ktor.http.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import mu.KLogging
@@ -26,7 +27,15 @@ internal object Installs : KLogging() {
           stackTracePage(cause)
         }
       }
-    }
 
+      status(HttpStatusCode.NotFound) {
+        //call.respond(TextContent("${it.value} ${it.description}", Plain.withCharset(UTF_8), it))
+        respondWith {
+          page(false) {
+            rootChoices("Invalid URL")
+          }
+        }
+      }
+    }
   }
 }

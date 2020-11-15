@@ -70,8 +70,11 @@ object Constants {
 
 enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
 
-fun BODY.rootChoices() {
+fun BODY.rootChoices(errorMsg: String = "") {
   h1 { +APP_TITLE }
+
+  if (errorMsg.isNotBlank())
+    h2 { style = "color:red;"; +errorMsg }
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
@@ -255,7 +258,7 @@ fun Application.module(testing: Boolean = false) {
                 table { ts.users.forEach { tr { td { +it.name } } } }
               }
               REFRESH_USERS -> {
-                h2 { +"Refreshed Users" }
+                h2 { +"Users Refreshed" }
                 table { ts.refreshUsers().forEach { tr { td { +it.name } } } }
               }
               ITEMS -> {
@@ -263,7 +266,7 @@ fun Application.module(testing: Boolean = false) {
                 table { ts.items.forEach { tr { td { +it.desc } } } }
               }
               REFRESH_ITEMS -> {
-                h2 { +"Refreshed Goods and services" }
+                h2 { +"Goods and services Refreshed" }
                 table { ts.refreshItems().forEach { tr { td { +it.desc } } } }
               }
               ALLOCATIONS -> {
