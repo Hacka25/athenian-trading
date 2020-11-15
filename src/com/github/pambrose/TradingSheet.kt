@@ -6,9 +6,9 @@ import com.github.pambrose.GoogleApiUtils.nowDateTime
 import com.github.pambrose.GoogleApiUtils.query
 import com.github.pambrose.GoogleApiUtils.sheetsService
 import com.github.pambrose.InsertDataOption.OVERWRITE
-import com.github.pambrose.Item.Companion.asItem
+import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.TradingSheet.Ranges.*
-import com.github.pambrose.User.Companion.asUser
+import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
 
 private const val APPLICATION_NAME = "Athenian Trading App"
@@ -41,7 +41,7 @@ private object ServiceCache {
 }
 
 class TradingSheet(private val ssId: String, credential: Credential) {
-  enum class Ranges { UsersRange, GoodsAndServicesRange, AllocationsRange, TransactionsRange, BalancesRange }
+  enum class Ranges { UsersRange, GoodsAndServicesRange, AllocationsRange, TradesRange, BalancesRange }
 
   private val service = sheetsService(APPLICATION_NAME, credential)
 
@@ -49,47 +49,47 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   fun refreshUsers() = ServiceCache.refreshUsers(this)
 
-  internal fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).asUser() }
+  internal fun fetchUsers() = service.query(ssId, UsersRange.name) { (this[0] as String).toUser() }
 
   val items get() = ServiceCache.items(this)
 
   fun refreshItems() = ServiceCache.refreshItems(this)
 
-  internal fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).asItem() }
+  internal fun fetchItems() = service.query(ssId, GoodsAndServicesRange.name) { (this[0] as String).toItem() }
 
   val allocations
     get() = service.query(ssId, AllocationsRange.name) {
-      TxnHalf((this[0] as String).asUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).asItem()))
+      TradeHalf((this[0] as String).toUser(), ItemAmount((this[1] as String).toInt(), (this[2] as String).toItem()))
     }
 
-  private val transactions
-    get() = service.query(ssId, TransactionsRange.name) {
+  private val trades
+    get() = service.query(ssId, TradesRange.name) {
       if (size == 7) {
         val date = this[0]
-        val buyer = (this[1] as String).asUser()
+        val buyer = (this[1] as String).toUser()
         val buyerAmount = (this[2] as String).toInt()
-        val buyerItem = (this[3] as String).asItem()
-        val seller = (this[4] as String).asUser()
+        val buyerItem = (this[3] as String).toItem()
+        val seller = (this[4] as String).toUser()
         val sellerAmount = (this[5] as String).toInt()
-        val sellerItem = (this[6] as String).asItem()
+        val sellerItem = (this[6] as String).toItem()
         listOf(
-          TxnHalf(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
-          TxnHalf(seller, ItemAmount(buyerAmount, buyerItem)),
-          TxnHalf(buyer, ItemAmount(sellerAmount, sellerItem)),
-          TxnHalf(seller, ItemAmount(-1 * sellerAmount, sellerItem))
+          TradeHalf(buyer, ItemAmount(-1 * buyerAmount, buyerItem)),
+          TradeHalf(seller, ItemAmount(buyerAmount, buyerItem)),
+          TradeHalf(buyer, ItemAmount(sellerAmount, sellerItem)),
+          TradeHalf(seller, ItemAmount(-1 * sellerAmount, sellerItem))
         )
       } else {
         emptyList()
       }
     }.flatten()
 
-  fun clearTransactions() =
-    service.clear(ssId, TransactionsRange.name)
+  fun clearTrades() =
+    service.clear(ssId, TradesRange.name)
 
   fun calcBalances(): Map<User, List<ItemAmount>> =
-    (allocations + transactions)
+    (allocations + trades)
       .groupBy({ it.user to it.itemAmount.item }, { it.itemAmount.amount })
-      .map { TxnHalf(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
+      .map { TradeHalf(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
       .filter { it.itemAmount.amount != 0 }
       .groupBy({ it.user }, { ItemAmount(it.itemAmount.amount, it.itemAmount.item) })
       .toSortedMap(compareBy { it.name })
@@ -97,16 +97,13 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         val insertList = mutableListOf<List<Any>>()
         val nameList = mutableListOf<String>()
         map.forEach { (k, v) ->
-          println(k.name)
           v.sortedWith(compareBy { it.item.desc })
             .forEach { itemAmount ->
-              println("\t$itemAmount")
               insertList += listOf(k.name.takeUnless { nameList.contains(it) } ?: "",
                                    itemAmount.amount,
                                    itemAmount.item.desc)
               nameList += k.name
             }
-          println()
         }
         service.apply {
           val range = BalancesRange.name
@@ -115,15 +112,15 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         }
       }
 
-  fun addTransaction(buyer: TxnHalf, seller: TxnHalf) =
+  fun addTrade(buyer: TradeHalf, seller: TradeHalf) =
     service.append(
       ssId,
-      TransactionsRange.name,
+      TradesRange.name,
       listOf(listOf(nowDateTime(),
                     buyer.user.name, buyer.itemAmount.amount, buyer.itemAmount.item.desc,
                     seller.user.name, seller.itemAmount.amount, seller.itemAmount.item.desc)))
       .let { response ->
-        "${buyer.user} traded ${buyer.itemAmount} with ${seller.user} in exchange for ${seller.itemAmount}" to response
+        "${buyer.user} traded ${buyer.itemAmount} for ${seller.itemAmount} with ${seller.user}" to response
       }
 }
 
@@ -131,7 +128,7 @@ data class User(val name: String) {
   override fun toString() = name
 
   companion object {
-    fun String.asUser() = User(this)
+    fun String.toUser() = User(this)
   }
 }
 
@@ -139,7 +136,7 @@ data class Item(val desc: String) {
   override fun toString() = desc
 
   companion object {
-    fun String.asItem() = Item(this)
+    fun String.toItem() = Item(this)
   }
 }
 
@@ -147,4 +144,4 @@ data class ItemAmount(val amount: Int, val item: Item) {
   override fun toString() = "$amount $item"
 }
 
-data class TxnHalf(val user: User, val itemAmount: ItemAmount)
+data class TradeHalf(val user: User, val itemAmount: ItemAmount)

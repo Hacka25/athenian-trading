@@ -1,37 +1,31 @@
 package com.github.pambrose
 
 import com.github.pambrose.Config.BASE_URL
-import com.github.pambrose.Config.CLIENT_ID
 import com.github.pambrose.Config.SS_ID
-import com.github.pambrose.Constants.ADD_TXN
+import com.github.pambrose.Constants.ADD_TRADE
+import com.github.pambrose.Constants.ADMIN
 import com.github.pambrose.Constants.ALLOCATIONS
 import com.github.pambrose.Constants.APP_TITLE
 import com.github.pambrose.Constants.AUTH
 import com.github.pambrose.Constants.CALC
-import com.github.pambrose.Constants.CLEAR_TXNS
+import com.github.pambrose.Constants.CLEAR_TRADES
 import com.github.pambrose.Constants.ITEMS
 import com.github.pambrose.Constants.PAUSE
-import com.github.pambrose.Constants.RANDOM_TXN
+import com.github.pambrose.Constants.RANDOM_TRADE
 import com.github.pambrose.Constants.REFRESH_ITEMS
 import com.github.pambrose.Constants.REFRESH_USERS
-import com.github.pambrose.Constants.SIGN_IN_BUTTON
-import com.github.pambrose.Constants.STORE_AUTH_CODE
 import com.github.pambrose.Constants.USERS
 import com.github.pambrose.GoogleApiUtils.getLocalAppCredentials
-import com.github.pambrose.GoogleApiUtils.getWebServerCredentials
 import com.github.pambrose.Installs.installs
-import com.github.pambrose.Item.Companion.asItem
+import com.github.pambrose.Item.Companion.toItem
 import com.github.pambrose.ParamNames.*
-import com.github.pambrose.User.Companion.asUser
+import com.github.pambrose.TradingServer.credential
+import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
-import com.google.api.client.auth.oauth2.Credential
-import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
-import io.ktor.http.*
-import io.ktor.http.ContentType.Text.Plain
+import io.ktor.locations.*
 import io.ktor.request.*
-import io.ktor.response.*
 import io.ktor.routing.*
 import kotlinx.coroutines.delay
 import kotlinx.html.*
@@ -39,7 +33,6 @@ import kotlinx.html.Entities.nbsp
 import kotlinx.html.stream.createHTML
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.security.InvalidParameterException
 import kotlin.time.seconds
 
 object Config {
@@ -48,29 +41,45 @@ object Config {
   const val BASE_URL = "http://localhost:8080"
 }
 
+enum class Actions {
+
+}
+
 object Constants {
-  const val USERS = "/users"
-  const val REFRESH_USERS = "/refresh-users"
-  const val ITEMS = "/items"
-  const val REFRESH_ITEMS = "/refresh-items"
-  const val ALLOCATIONS = "/allocations"
-  const val RANDOM_TXN = "/random"
-  const val ADD_TXN = "/add"
-  const val CLEAR_TXNS = "/clear"
-  const val CALC = "/calc"
+  const val USERS = "users"
+  const val REFRESH_USERS = "refresh-users"
+  const val ITEMS = "items"
+  const val REFRESH_ITEMS = "refresh-items"
+  const val ALLOCATIONS = "allocations"
+  const val RANDOM_TRADE = "random"
+  const val CLEAR_TRADES = "clear"
+  const val CALC = "calc"
+
+  const val ADMIN = "/admin"
+  const val ADD_TRADE = "/trade"
   const val AUTH = "/auth"
-  const val STORE_AUTH_CODE = "/storeauthcode"
   const val PAUSE = "/pause"
 
   const val APP_TITLE = "Athenian Trading App"
-  const val SIGN_IN_BUTTON = "signinButton"
 }
 
 enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
 
-var credential: Credential? = null
+fun BODY.rootChoices() {
+  h1 { +APP_TITLE }
 
-fun BODY.choices() {
+  ul {
+    style = "padding-left:0; margin-bottom:0; list-style-type:none"
+    if (credential == null) {
+      li { a { href = AUTH; +"Authorize app" } }
+    } else {
+      li { a { href = ADMIN; +"Admin tasks" } }
+      li { a { href = ADD_TRADE; +"Add a trade" } }
+    }
+  }
+}
+
+fun BODY.adminChoices() {
   h1 { +APP_TITLE }
 
   ul {
@@ -79,21 +88,31 @@ fun BODY.choices() {
       li { a { href = AUTH; +"Authorize app" } }
     } else {
       li {
-        a { href = USERS; +"Users" }
-        rawHtml(nbsp.text); rawHtml(nbsp.text); a {
-        href = REFRESH_USERS; +"(Refresh)"
-      }
+        a { href = "$ADMIN/$USERS"; +"Users" }
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
+        a { href = "$ADMIN/$REFRESH_USERS"; +"(Refresh)" }
       }
       li {
-        a { href = ITEMS; +"Goods and services" }
-        rawHtml(nbsp.text); rawHtml(nbsp.text); a {
-        href = REFRESH_ITEMS; +"(Refresh)"
+        a { href = "$ADMIN/$ITEMS"; +"Goods and services" }
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
+        a { href = "$ADMIN/$REFRESH_ITEMS"; +"(Refresh)" }
       }
-      }
-      li { a { href = ALLOCATIONS; +"Allocations" } }
-      //li { a { href = RANDOM_TXN; +"Add random transaction" } }
-      li { a { href = ADD_TXN; +"Add transaction" } }
-      li { a { href = CALC; +"Calculate balances" } }
+      li { a { href = "$ADMIN/$ALLOCATIONS"; +"Allocations" } }
+      li { a { href = "$ADMIN/$RANDOM_TRADE"; +"Add random trade" } }
+      li { a { href = "$ADMIN/$CALC"; +"Calculate balances" } }
+    }
+  }
+}
+
+fun BODY.tradeChoices() {
+  h1 { +APP_TITLE }
+
+  ul {
+    style = "padding-left:0; margin-bottom:0; list-style-type:none"
+    if (credential == null) {
+      li { a { href = AUTH; +"Authorize app" } }
+    } else {
+      //li { a { href = ADD_TRADE; +"Add trade" } }
     }
   }
 }
@@ -102,7 +121,7 @@ fun stackTracePage(e: Throwable) =
   createHTML()
     .html {
       body {
-        choices()
+        adminChoices()
         val sw = StringWriter()
         e.printStackTrace(PrintWriter(sw))
         h2 { +"Error" }
@@ -110,11 +129,13 @@ fun stackTracePage(e: Throwable) =
       }
     }
 
-fun page(block: BODY.() -> Unit) =
+fun page(backLink: Boolean = true, block: BODY.() -> Unit) =
   createHTML()
     .html {
       body {
         block()
+        if (backLink)
+          p { a { href = "/"; rawHtml("&larr; Back") } }
       }
     }
 
@@ -125,14 +146,85 @@ fun Application.module(testing: Boolean = false) {
 
   fun tradingSheet() = TradingSheet(SS_ID, credential ?: throw MissingCredentials("No credentials"))
 
+  fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeHalf, seller: TradeHalf) {
+    form {
+      action = ADD_TRADE
+      method = FormMethod.post
+
+      table {
+
+        tr { td { b { +"Buyer:" } } }
+
+        tr {
+          td { rawHtml(nbsp.text) }
+          td {
+            select {
+              name = BUYER_NAME.name
+              ts.users.map { it.name }.forEach { option { value = it; selected = (it == buyer.user.name); +it } }
+            }
+          }
+          td {
+            numberInput {
+              size = "6"
+              name = BUYER_AMOUNT.name
+              value = buyer.itemAmount.amount.toString()
+            }
+          }
+          td {
+            select {
+              name = BUYER_ITEM.name
+              ts.items.map { it.desc }
+                .forEach { option { value = it; selected = (it == buyer.itemAmount.item.desc); +it } }
+            }
+          }
+        }
+
+        tr { td { rawHtml(nbsp.text) } }
+
+        tr { td { b { +"Seller" } } }
+        tr {
+          td { rawHtml(nbsp.text) }
+          td {
+            select {
+              name = SELLER_NAME.name
+              ts.users.map { it.name }.forEach { option { value = it; selected = (it == seller.user.name); +it } }
+            }
+          }
+          td {
+            numberInput {
+              size = "6"
+              name = SELLER_AMOUNT.name
+              value = seller.itemAmount.amount.toString()
+            }
+          }
+          td {
+            select {
+              name = SELLER_ITEM.name
+              ts.items.map { it.desc }
+                .forEach { option { value = it; selected = (it == seller.itemAmount.item.desc); +it } }
+            }
+          }
+        }
+
+        tr { td { rawHtml(nbsp.text) } }
+
+        tr {
+          td {}
+          td { submitInput { } }
+        }
+      }
+    }
+
+  }
+
   routing {
     get("/") {
       if (credential == null)
         redirectTo { AUTH }
       else
         respondWith {
-          page {
-            choices()
+          page(false) {
+            rootChoices()
           }
         }
     }
@@ -143,191 +235,104 @@ fun Application.module(testing: Boolean = false) {
       redirectTo { BASE_URL }
     }
 
-    get(USERS) {
+    get(ADMIN) {
       if (credential == null)
         redirectTo { AUTH }
       else
         respondWith {
           page {
-            choices()
-            h2 { +"Users" }
-            table {
-              tradingSheet().users.forEach { tr { td { +it.name } } }
-            }
+            adminChoices()
           }
         }
     }
 
-    get(REFRESH_USERS) {
+    get<Admin> { arg ->
       if (credential == null)
         redirectTo { AUTH }
       else
         respondWith {
           page {
-            choices()
-            h2 { +"Refreshed Users" }
-            table {
-              tradingSheet().refreshUsers().forEach { tr { td { +it.name } } }
-            }
-          }
-        }
-    }
-
-    get(ITEMS) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Goods and services" }
-            table {
-              tradingSheet().items.forEach { tr { td { +it.desc } } }
-            }
-          }
-        }
-    }
-
-    get(REFRESH_ITEMS) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Refreshed Goods and services" }
-            table {
-              tradingSheet().refreshItems().forEach { tr { td { +it.desc } } }
-            }
-          }
-        }
-    }
-
-    get(ALLOCATIONS) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Allocations" }
-            tradingSheet().allocations
-              .also { items ->
-                table {
-                  items.forEach {
-                    tr {
-                      td {
-                        style = "padding-right:5;"
-                        b { +it.user.name }
+            adminChoices()
+            val ts = tradingSheet()
+            when (arg.action) {
+              USERS -> {
+                h2 { +"Users" }
+                table { ts.users.forEach { tr { td { +it.name } } } }
+              }
+              REFRESH_USERS -> {
+                h2 { +"Refreshed Users" }
+                table { ts.refreshUsers().forEach { tr { td { +it.name } } } }
+              }
+              ITEMS -> {
+                h2 { +"Goods and services" }
+                table { ts.items.forEach { tr { td { +it.desc } } } }
+              }
+              REFRESH_ITEMS -> {
+                h2 { +"Refreshed Goods and services" }
+                table { ts.refreshItems().forEach { tr { td { +it.desc } } } }
+              }
+              ALLOCATIONS -> {
+                h2 { +"Allocations" }
+                ts.allocations
+                  .also { items ->
+                    table {
+                      items.forEach {
+                        tr {
+                          td { style = "padding-right:5;"; b { +it.user.name } }
+                          td { +"${it.itemAmount}" }
+                        }
                       }
-                      td { +"${it.itemAmount}" }
                     }
                   }
-                }
               }
+              RANDOM_TRADE -> {
+                h2 { +"Random trade added" }
+
+                val buyer = TradeHalf(ts.users.random(), ItemAmount((1..10).random(), ts.items.random()))
+                val seller = TradeHalf((ts.users - buyer.user).random(),
+                                       ItemAmount((1..10).random(), (ts.items - buyer.itemAmount.item).random()))
+                ts.addTrade(buyer, seller)
+                  .apply {
+                    div { +first }
+                  }
+              }
+              CLEAR_TRADES -> {
+                h2 { +"Trades cleared" }
+                ts.clearTrades().also { pre { +it.toString() } }
+              }
+              CALC -> {
+                h2 { +"Balances" }
+                ts.calcBalances()
+                  .also { elems ->
+                    table {
+                      elems.forEach { row ->
+                        val nameList = mutableListOf<String>()
+                        row.value.sortedWith(compareBy { it.item.desc })
+                          .forEach {
+                            tr {
+                              td {
+                                style = "padding-left:10;padding-right:5;"
+                                b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
+                              }
+                              td { +"${it}" }
+                            }
+                            nameList += row.key.name
+                          }
+                        tr {
+                          td { rawHtml(nbsp.text) }
+                          td {}
+                        }
+                      }
+                    }
+                  }
+              }
+              else -> +"Invalid request: ${arg.action}"
+            }
           }
         }
     }
 
-    get(RANDOM_TXN) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Random transaction added" }
-
-            val ts = tradingSheet()
-            val userList = ts.users
-            val itemList = ts.items
-            val buyerUser = userList.random()
-            val sellerUser = (userList - buyerUser).random()
-            val buyerItem = itemList.random()
-            val sellerItem = (itemList - buyerItem).random()
-
-            ts.addTransaction(TxnHalf(buyerUser, ItemAmount((1..10).random(), buyerItem)),
-                              TxnHalf(sellerUser, ItemAmount((1..10).random(), sellerItem)))
-              .apply {
-                div { +first }
-                //pre { +second.toString() }
-              }
-          }
-        }
-    }
-
-    fun BODY.addTransactionForm(ts: TradingSheet, buyer: TxnHalf, seller: TxnHalf) {
-      form {
-        action = ADD_TXN
-        method = FormMethod.post
-
-        table {
-
-          tr { td { b { +"Buyer:" } } }
-
-          tr {
-            td { rawHtml(nbsp.text) }
-            td {
-              select {
-                name = BUYER_NAME.name
-                ts.users.map { it.name }.forEach { option { value = it; selected = (it == buyer.user.name); +it } }
-              }
-            }
-            td {
-              numberInput {
-                size = "6"
-                name = BUYER_AMOUNT.name
-                value = buyer.itemAmount.amount.toString()
-              }
-            }
-            td {
-              select {
-                name = BUYER_ITEM.name
-                ts.items.map { it.desc }
-                  .forEach { option { value = it; selected = (it == buyer.itemAmount.item.desc); +it } }
-              }
-            }
-          }
-
-          tr { td { rawHtml(nbsp.text) } }
-
-          tr { td { b { +"Seller" } } }
-          tr {
-            td { rawHtml(nbsp.text) }
-            td {
-              select {
-                name = SELLER_NAME.name
-                ts.users.map { it.name }.forEach { option { value = it; selected = (it == seller.user.name); +it } }
-              }
-            }
-            td {
-              numberInput {
-                size = "6"
-                name = SELLER_AMOUNT.name
-                value = seller.itemAmount.amount.toString()
-              }
-            }
-            td {
-              select {
-                name = SELLER_ITEM.name
-                ts.items.map { it.desc }
-                  .forEach { option { value = it; selected = (it == seller.itemAmount.item.desc); +it } }
-              }
-            }
-          }
-
-          tr { td { rawHtml(nbsp.text) } }
-
-          tr {
-            td {}
-            td { submitInput { } }
-          }
-        }
-      }
-
-    }
-
-    get(ADD_TXN) {
+    get(ADD_TRADE) {
       if (credential == null)
         redirectTo { AUTH }
       else
@@ -335,116 +340,65 @@ fun Application.module(testing: Boolean = false) {
           val ts = tradingSheet()
           val params = call.request.queryParameters
           val buyer =
-            TxnHalf(params[BUYER_NAME.name]?.asUser() ?: ts.users[0],
-                    ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
-                               params[BUYER_ITEM.name]?.asItem() ?: ts.items[0]))
+            TradeHalf(params[BUYER_NAME.name]?.toUser() ?: ts.users[0],
+                      ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
+                                 params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
           val seller =
-            TxnHalf(params[SELLER_NAME.name]?.asUser() ?: ts.users[0],
-                    ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
-                               params[SELLER_ITEM.name]?.asItem() ?: ts.items[0]))
+            TradeHalf(params[SELLER_NAME.name]?.toUser() ?: ts.users[0],
+                      ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
+                                 params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
 
           page {
-            choices()
-            h2 { +"Add transaction" }
-            addTransactionForm(ts, buyer, seller)
+            tradeChoices()
+            h2 { +"Add a trade" }
+            addTradeForm(ts, buyer, seller)
           }
         }
     }
 
-    post(ADD_TXN) {
+    post(ADD_TRADE) {
       val ts = tradingSheet()
       val params = call.receiveParameters()
       val buyer =
-        TxnHalf(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
-                  ?: throw InvalidRequestException("Buyer user"),
-                ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount"),
-                           ts.items.firstOrNull { it.desc == params[BUYER_ITEM.name] } ?: throw InvalidRequestException(
-                             "Buyer item")))
+        TradeHalf(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
+                    ?: throw InvalidRequestException("Buyer user"),
+                  ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Buyer amount"),
+                             ts.items.firstOrNull { it.desc == params[BUYER_ITEM.name] }
+                               ?: throw InvalidRequestException(
+                                 "Buyer item")))
       val seller =
-        TxnHalf(ts.users.firstOrNull { it.name == params[SELLER_NAME.name] }
-                  ?: throw InvalidRequestException("Seller user"),
-                ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount"),
-                           ts.items.firstOrNull { it.desc == params[SELLER_ITEM.name] }
-                             ?: throw InvalidRequestException("Seller item")))
+        TradeHalf(ts.users.firstOrNull { it.name == params[SELLER_NAME.name] }
+                    ?: throw InvalidRequestException("Seller user"),
+                  ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: throw InvalidRequestException("Seller amount"),
+                             ts.items.firstOrNull { it.desc == params[SELLER_ITEM.name] }
+                               ?: throw InvalidRequestException("Seller item")))
 
       if (credential == null)
         redirectTo { AUTH }
       else
         respondWith {
           page {
-            choices()
+            tradeChoices()
             when {
               buyer.user == seller.user -> {
                 h2 { style = "color:red;"; +"Error: names cannot be the same" }
-                addTransactionForm(ts, buyer, seller)
+                addTradeForm(ts, buyer, seller)
               }
               buyer.itemAmount.amount <= 0 || seller.itemAmount.amount <= 0 -> {
-                h2 { style = "color:red;"; +"Error: both amounts must be a positive number" }
-                addTransactionForm(ts, buyer, seller)
+                h2 { style = "color:red;"; +"Error: amounts must be a positive number" }
+                addTradeForm(ts, buyer, seller)
               }
               buyer.itemAmount.item == seller.itemAmount.item -> {
                 h2 { style = "color:red;"; +"Error: items cannot be the same" }
-                addTransactionForm(ts, buyer, seller)
+                addTradeForm(ts, buyer, seller)
               }
               else -> {
-                h2 { +"Transaction added" }
-                ts.addTransaction(buyer, seller)
-                  .apply {
-                    div { +first }
-                  }
+                h2 { +"Trade added" }
+                ts.addTrade(buyer, seller).apply { div { +first } }
+
+                p { a { href = ADD_TRADE; +"Add another trade" } }
               }
             }
-          }
-        }
-    }
-
-    get(CLEAR_TXNS) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Transactions cleared" }
-            tradingSheet().clearTransactions()
-              .also {
-                pre { +it.toString() }
-              }
-          }
-        }
-    }
-
-    get(CALC) {
-      if (credential == null)
-        redirectTo { AUTH }
-      else
-        respondWith {
-          page {
-            choices()
-            h2 { +"Balances" }
-            tradingSheet().calcBalances()
-              .also { elems ->
-                table {
-                  elems.forEach { row ->
-                    val nameList = mutableListOf<String>()
-                    row.value.sortedWith(compareBy { it.item.desc })
-                      .forEach {
-                        tr {
-                          td {
-                            style = "padding-left:10;padding-right:5;"
-                            b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
-                          }
-                          td { +"${it}" }
-                        }
-                        nameList += row.key.name
-                      }
-                    tr {
-                      td { rawHtml(nbsp.text) }
-                      td {}
-                    }
-                  }
-                }
-              }
           }
         }
     }
@@ -458,99 +412,10 @@ fun Application.module(testing: Boolean = false) {
         throw e
       }
     }
-
-    post(STORE_AUTH_CODE) {
-      try {
-        "X-Requested-With".also {
-          call.request.headers[it] ?: throw InvalidParameterException("Missing $it header")
-        }
-        val authCode = call.receive<String>()
-        credential = getWebServerCredentials(authCode)
-        call.respondText("OK", Plain, HttpStatusCode.OK)
-      } catch (e: Throwable) {
-        e.printStackTrace()
-        call.respondText("Error", Plain, HttpStatusCode.Forbidden)
-      }
-    }
-
-    get("/oldAuth") {
-      respondWith {
-        createHTML()
-          .html {
-            //itemscope = true
-            //itemtype = "http://schema.org/Article"
-            head {
-              script {
-                src = "//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"
-              }
-              script {
-                src = "https://apis.google.com/js/client:platform.js?onload=start"
-                async = true
-                defer = true
-              }
-              script {
-                rawHtml(
-                  """
-                   function start() {
-                     gapi.load('auth2', function() {
-                        auth2 = gapi.auth2.init({
-                            client_id: '$CLIENT_ID',
-                            // Scopes to request in addition to 'profile' and 'email'
-                            scope: '${SheetsScopes.SPREADSHEETS}'
-                        });
-                     });
-                   }
-                   """.trimIndent())
-              }
-            }
-            body {
-              h1 { +APP_TITLE }
-
-              button {
-                id = SIGN_IN_BUTTON
-                +"Authorize app with Google"
-              }
-
-              p { a { href = "/"; rawHtml("&larr; Back") } }
-
-              script {
-                rawHtml(
-                  """                                        
-                  ${"$"}('#$SIGN_IN_BUTTON').click(function() {
-                    auth2.grantOfflineAccess().then(signInCallback);
-                  });
-
-                  function signInCallback(authResult) {
-                    if (authResult['code']) {
-                      // Hide the sign-in button now that the user is authorized
-                      ${'$'}('#$SIGN_IN_BUTTON').attr('style', 'display: none');
-                  
-                      // Send the code to the server
-                      ${'$'}.ajax({
-                        type: 'POST',
-                        url: '$BASE_URL$STORE_AUTH_CODE',
-                        // Always include an `X-Requested-With` header in every AJAX request,
-                        // to protect against CSRF attacks.
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        contentType: 'application/octet-stream; charset=utf-8',
-                        success: function(result) {
-                          // Handle or verify the server response.
-                        },
-                        processData: false,
-                        data: authResult['code']
-                      });
-                    } else {
-                      // There was an error.
-                      console.log('Error in ajax call');
-                    }
-                  }                                        
-                  """.trimIndent())
-              }
-            }
-          }
-      }
-    }
   }
 }
+
+@Location("$ADMIN/{action}")
+internal data class Admin(val action: String)
 
 fun HTMLTag.rawHtml(html: String) = unsafe { raw(html) }

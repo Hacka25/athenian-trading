@@ -26,8 +26,7 @@ import java.time.temporal.ChronoField
 import java.time.temporal.ChronoUnit
 
 object GoogleApiUtils {
-  private const val CREDENTIALS_FILE_PATH = "/credentials.json"
-  private const val TOKENS_DIRECTORY_PATH = "tokens"
+  internal const val TOKENS_DIRECTORY_PATH = "tokens"
   private val JSON_FACTORY = JacksonFactory.getDefaultInstance()
   private val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
   private val SCOPES = listOf(SheetsScopes.SPREADSHEETS)
@@ -55,6 +54,7 @@ object GoogleApiUtils {
       GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
         .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
         .setAccessType("offline")
+        .setApprovalPrompt("auto")
         .build()
     val receiver =
       LocalServerReceiver.Builder()

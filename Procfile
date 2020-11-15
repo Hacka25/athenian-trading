@@ -1,0 +1,1 @@
+web: java -Dagent.config=resources/application.conf -jar build/libs/server.jar

@@ -17,7 +17,7 @@ repositories {
 }
 
 // These are for the uber target
-def mainName = "io.ktor.server.cio.EngineMain"
+def mainName = "com.github.pambrose.TradingServer"
 def appName = 'server'
 
 // This is for ./gradlew run
@@ -69,6 +69,22 @@ dependencies {
     implementation "ch.qos.logback:logback-classic:$logback_version"
 
     testImplementation "io.ktor:ktor-server-tests:$ktor_version"
+}
+
+task stage(dependsOn: ['uberjar', 'build', 'clean'])
+build.mustRunAfter clean
+
+task uberjar(type: Jar, dependsOn: shadowJar) {
+    zip64 true
+    archiveFileName = 'server.jar'
+    manifest {
+        attributes('Implementation-Title': appName)
+        attributes('Implementation-Version': version)
+        attributes('Built-Date': new Date())
+        attributes('Built-JDK': System.getProperty('java.version'))
+        attributes('Main-Class': mainName)
+    }
+    from zipTree(shadowJar.archiveFile)
 }
 
 compileKotlin {
