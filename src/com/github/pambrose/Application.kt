@@ -21,7 +21,6 @@ import com.github.pambrose.Actions.*
 import com.github.pambrose.Actions.Companion.asAction
 import com.github.pambrose.Config.baseUrl
 import com.github.pambrose.Config.spreadsheetId
-import com.github.pambrose.Constants.APP_TITLE
 import com.github.pambrose.EnvVar.*
 import com.github.pambrose.GoogleApiUtils.googleAuthPageUrl
 import com.github.pambrose.Installs.installs
@@ -30,6 +29,8 @@ import com.github.pambrose.ParamNames.*
 import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.OAUTH_CB
+import com.github.pambrose.Paths.STATIC_ROOT
+import com.github.pambrose.TradingServer.APP_TITLE
 import com.github.pambrose.TradingServer.authCodeFlow
 import com.github.pambrose.TradingServer.credential
 import com.github.pambrose.TradingServer.serverSessionId
@@ -38,8 +39,10 @@ import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
+import com.github.pambrose.common.util.pathOf
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.ktor.application.*
+import io.ktor.http.content.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import io.ktor.routing.*
@@ -73,10 +76,19 @@ object Paths {
   const val ADMIN = "/admin"
   const val ADD_TRADE = "/trade"
   const val OAUTH_CB = "/oauth-cd"
+  const val STATIC_ROOT = "/static"
+}
+
+fun BODY.header() = h1 {
+  span {
+    img { height = "40"; src = pathOf(STATIC_ROOT, "athenian.png") }
+    rawHtml(nbsp.text)
+    +APP_TITLE
+  }
 }
 
 fun BODY.rootChoices(errorMsg: String = "") {
-  h1 { +APP_TITLE }
+  header()
 
   if (errorMsg.isNotBlank())
     h2 { style = "color:red;"; +errorMsg }
@@ -89,7 +101,7 @@ fun BODY.rootChoices(errorMsg: String = "") {
 }
 
 fun BODY.adminChoices() {
-  h1 { +APP_TITLE }
+  header()
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
@@ -110,7 +122,7 @@ fun BODY.adminChoices() {
 }
 
 fun BODY.tradeChoices() {
-  h1 { +APP_TITLE }
+  header()
 
   ul {
     style = "padding-left:0; margin-bottom:0; list-style-type:none"
@@ -226,6 +238,9 @@ fun Application.module(testing: Boolean = false) {
            XFORWARDED_ENABLED.getEnv(false))
 
   routing {
+
+    static(STATIC_ROOT) { resources("static") }
+
     get("/") {
       respondWith {
         page(false) {

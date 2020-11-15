@@ -39,6 +39,7 @@ object TradingServer : KLogging() {
   internal val serverSessionId = randomId(10)
   internal val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   internal val upTime get() = startTime.elapsedNow()
+  internal const val APP_TITLE = "Athenian Trading App"
   internal const val userId = "owlsowls"
   internal var credential = AtomicReference<Credential>()
   internal val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))

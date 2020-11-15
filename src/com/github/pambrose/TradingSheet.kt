@@ -17,7 +17,6 @@
 
 package com.github.pambrose
 
-import com.github.pambrose.Constants.APP_TITLE
 import com.github.pambrose.GoogleApiUtils.append
 import com.github.pambrose.GoogleApiUtils.clear
 import com.github.pambrose.GoogleApiUtils.nowDateTime
@@ -25,6 +24,7 @@ import com.github.pambrose.GoogleApiUtils.query
 import com.github.pambrose.GoogleApiUtils.sheetsService
 import com.github.pambrose.InsertDataOption.OVERWRITE
 import com.github.pambrose.Item.Companion.toItem
+import com.github.pambrose.TradingServer.APP_TITLE
 import com.github.pambrose.TradingSheet.Ranges.*
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
