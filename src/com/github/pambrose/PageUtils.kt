@@ -63,7 +63,7 @@ fun PipelineCall.authorizedUser(reset: Boolean = false): User {
 
 fun BODY.pageTitle() = h1 {
   span {
-    img { height = "40"; src = pathOf(STATIC_ROOT, "athenian.png") }
+    img { style = "width:1em;height:1em;"; src = pathOf(STATIC_ROOT, "athenian.png") }
     rawHtml(Entities.nbsp.text)
     +APP_TITLE
   }

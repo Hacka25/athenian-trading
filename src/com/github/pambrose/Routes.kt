@@ -344,6 +344,10 @@ object Routes : KLogging() {
 
       get(STYLES_CSS) {
         call.respondCss {
+          rule("html, body") {
+            fontSize = 22.px
+            fontFamily = "verdana, arial, helvetica, sans-serif"
+          }
           rule("ul") {
             paddingLeft = 0.px
             listStyleType = ListStyleType.none
