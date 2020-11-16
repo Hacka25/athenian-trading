@@ -111,14 +111,15 @@ object AdminPage {
                   val nameList = mutableListOf<String>()
                   row.value.sortedWith(compareBy { it.item.desc })
                     .forEach {
+                      val name = row.key.name
                       tr {
                         td {
                           style = "padding-left:10;padding-right:5;"
-                          b { +(row.key.name.takeUnless { nameList.contains(it) } ?: "") }
+                          b { +(name.takeUnless { nameList.contains(it) } ?: "") }
                         }
                         td { +"$it" }
                       }
-                      nameList += row.key.name
+                      nameList += name
                     }
                   tr {
                     td { rawHtml(Entities.nbsp.text) }

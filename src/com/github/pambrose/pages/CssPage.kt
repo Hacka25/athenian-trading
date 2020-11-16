@@ -35,7 +35,11 @@ object CssPage {
         listStyleType = ListStyleType.none
       }
       rule("li") {
-        paddingBottom = 10.px
+        paddingBottom = 15.px
+      }
+      // Turn links red on mouse hovers.
+      rule("a:hover") {
+        color = Color.red
       }
     }
 }
