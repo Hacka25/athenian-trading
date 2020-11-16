@@ -50,6 +50,9 @@ dependencies {
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
 
+    implementation "org.jetbrains:kotlin-css:$css_version"
+    implementation "org.jetbrains:kotlin-css-jvm:$css_version"
+
     implementation "io.ktor:ktor-server-cio:$ktor_version"
     implementation "io.ktor:ktor-server-core:$ktor_version"
 

@@ -18,10 +18,6 @@
 package com.github.pambrose
 
 import com.github.pambrose.EnvVar.FILTER_LOG
-import com.github.pambrose.PageUtils.page
-import com.github.pambrose.PageUtils.rootChoices
-import com.github.pambrose.PageUtils.stackTracePage
-import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.TradingServer.adminAuth
 import com.github.pambrose.TradingServer.authMap
@@ -96,7 +92,6 @@ object Installs : KLogging() {
       basic(name = userAuth) {
         realm = "Ktor Server"
         validate { cred ->
-          //logger.info { "Looking at: ${cred.name}" }
           val users = tradingSheet().users
           val user = users.firstOrNull { it.name == cred.name }
           if (user?.password == cred.password) {
