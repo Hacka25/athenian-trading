@@ -21,6 +21,13 @@ import com.github.pambrose.Actions.*
 import com.github.pambrose.Actions.Companion.asAction
 import com.github.pambrose.GoogleApiUtils.googleAuthPageUrl
 import com.github.pambrose.Item.Companion.toItem
+import com.github.pambrose.PageUtils.adminChoices
+import com.github.pambrose.PageUtils.authorizedUser
+import com.github.pambrose.PageUtils.page
+import com.github.pambrose.PageUtils.rawHtml
+import com.github.pambrose.PageUtils.rootChoices
+import com.github.pambrose.PageUtils.tradeChoices
+import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
@@ -345,7 +352,7 @@ object Routes : KLogging() {
       get(STYLES_CSS) {
         call.respondCss {
           rule("html, body") {
-            fontSize = 22.px
+            fontSize = 24.px
             fontFamily = "verdana, arial, helvetica, sans-serif"
           }
           rule("ul") {
