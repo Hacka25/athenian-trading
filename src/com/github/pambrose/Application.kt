@@ -23,9 +23,16 @@ import com.github.pambrose.EnvVar.*
 import com.github.pambrose.GoogleApiUtils.googleAuthPageUrl
 import com.github.pambrose.Installs.installs
 import com.github.pambrose.Item.Companion.toItem
+import com.github.pambrose.PageUtils.adminChoices
+import com.github.pambrose.PageUtils.authorizedUser
+import com.github.pambrose.PageUtils.page
+import com.github.pambrose.PageUtils.rootChoices
+import com.github.pambrose.PageUtils.tradeChoices
+import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.ParamNames.*
 import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
+import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.OAUTH_CB
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.TradingServer.APP_TITLE
@@ -51,9 +58,11 @@ import io.ktor.http.content.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import io.ktor.routing.*
+import io.ktor.util.pipeline.*
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
 import kotlinx.html.stream.createHTML
+import mu.KLogging
 import java.io.PrintWriter
 import java.io.StringWriter
 
@@ -72,97 +81,114 @@ enum class Actions(val action: String) {
   }
 }
 
+typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
+
 object Paths {
   const val ADMIN = "/admin"
   const val ADD_TRADE = "/trade"
   const val OAUTH_CB = "/oauth-cd"
   const val STATIC_ROOT = "/static"
+  const val LOGOUT = "/logout"
 }
 
-fun BODY.pageTitle() = h1 {
-  span {
-    img { height = "40"; src = pathOf(STATIC_ROOT, "athenian.png") }
-    rawHtml(nbsp.text)
-    +APP_TITLE
+object PageUtils : KLogging() {
+  private const val lipad = 5
+
+  fun tradingSheet() = TradingSheet(spreadsheetId, googleCredential.get() ?: throw MissingCredential("No credential"))
+
+  fun PipelineCall.authorizedUser(reset: Boolean = false): User {
+    val auth = call.request.header(HttpHeaders.Authorization)?.removePrefix("Basic ") ?: ""
+    return authMap[auth]
+      ?.let {
+        if (reset) {
+          logger.info { "Resetting login for ${it.first.name}" }
+          authMap[auth] = it.first to true
+        }
+        it.first
+      } ?: throw InvalidRequestException("Unrecognized user")
   }
-}
 
-private const val lipad = 5
-
-fun BODY.rootChoices(errorMsg: String = "") {
-  if (errorMsg.isNotBlank())
-    h2 { style = "color:red;"; +errorMsg }
-
-  ul {
-    style = "padding-left:0;list-style-type:none"
-    li { style = "padding-bottom:$lipad;"; a { href = ADMIN; +"Admin tasks" } }
-    li { style = "padding-bottom:$lipad;"; a { href = ADD_TRADE; +"Add a trade" } }
-  }
-}
-
-fun BODY.adminChoices() {
-  ul {
-    style = "padding-left:0;list-style-type:none"
-    li {
-      style = "padding-bottom:$lipad;"
-      a { href = "https://docs.google.com/spreadsheets/d/$spreadsheetId/"; target = "_blank"; +"Google Sheet" }
+  fun BODY.pageTitle() = h1 {
+    span {
+      img { height = "40"; src = pathOf(STATIC_ROOT, "athenian.png") }
+      rawHtml(nbsp.text)
+      +APP_TITLE
     }
-    li {
-      style = "padding-bottom:$lipad;"
-      a { href = USERS.asPath(); +"Users" }
-      rawHtml(nbsp.text); rawHtml(nbsp.text)
-      a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
-    }
-    li {
-      style = "padding-bottom:$lipad;"
-      a { href = ITEMS.asPath(); +"Goods and services" }
-      rawHtml(nbsp.text); rawHtml(nbsp.text)
-      a { href = REFRESH_ITEMS.asPath(); +"(Refresh)" }
-    }
-    li { style = "padding-bottom:$lipad;"; a { href = ALLOCATIONS.asPath(); +"Allocations" } }
-    li { style = "padding-bottom:$lipad;"; a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
-    li { style = "padding-bottom:$lipad;"; a { href = CALC.asPath(); +"Calculate balances" } }
   }
-}
 
-fun BODY.tradeChoices() {
-  ul {
-    style = "padding-left:0;list-style-type:none"
-    //li { a { href = ADD_TRADE; +"Add trade" } }
+  fun BODY.homeLink() = p { a { href = "/"; rawHtml("&larr; Home") } }
+
+  fun BODY.rootChoices(errorMsg: String = "") {
+    if (errorMsg.isNotBlank())
+      h2 { style = "color:red;"; +errorMsg }
+
+    ul {
+      style = "padding-left:0;list-style-type:none"
+      li { style = "padding-bottom:$lipad;"; a { href = ADMIN; +"Admin tasks" } }
+      li { style = "padding-bottom:$lipad;"; a { href = ADD_TRADE; +"Add a trade" } }
+    }
   }
-}
 
-fun stackTracePage(e: Throwable) =
-  createHTML()
-    .html {
-      body {
-        val sw = StringWriter()
-        e.printStackTrace(PrintWriter(sw))
-        pageTitle()
-        p { a { href = "/"; rawHtml("&larr; Back") } }
-        h2 { +"Error" }
-        pre { +sw.toString() }
+  fun BODY.adminChoices() {
+    ul {
+      style = "padding-left:0;list-style-type:none"
+      li {
+        style = "padding-bottom:$lipad;"
+        a { href = "https://docs.google.com/spreadsheets/d/$spreadsheetId/"; target = "_blank"; +"Google Sheet" }
       }
+      li {
+        style = "padding-bottom:$lipad;"
+        a { href = USERS.asPath(); +"Users" }
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
+        a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
+      }
+      li {
+        style = "padding-bottom:$lipad;"
+        a { href = ITEMS.asPath(); +"Goods and services" }
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
+        a { href = REFRESH_ITEMS.asPath(); +"(Refresh)" }
+      }
+      li { style = "padding-bottom:$lipad;"; a { href = ALLOCATIONS.asPath(); +"Allocations" } }
+      //li { style = "padding-bottom:$lipad;"; a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
+      li { style = "padding-bottom:$lipad;"; a { href = CALC.asPath(); +"Calculate balances" } }
     }
+  }
 
-fun page(backLink: Boolean = true, block: BODY.() -> Unit) =
-  createHTML()
-    .html {
-      body {
-        pageTitle()
-        div {
-          style = "padding-left:20;"
-          this@body.block()
+  fun BODY.tradeChoices() {
+    ul {
+      style = "padding-left:0;list-style-type:none"
+      li { style = "padding-bottom:$lipad;"; a { href = LOGOUT; +"Logout" } }
+    }
+  }
 
-          if (backLink)
-            p {
-              a { href = "/"; rawHtml("&larr; Back") }
-            }
+  fun page(addHomeLink: Boolean = true, block: BODY.() -> Unit) =
+    createHTML()
+      .html {
+        body {
+          pageTitle()
+          div {
+            style = "padding-left:20;"
+            this@body.block()
+
+            if (addHomeLink)
+              this@body.homeLink()
+          }
         }
       }
-    }
 
-fun tradingSheet() = TradingSheet(spreadsheetId, googleCredential.get() ?: throw MissingCredential("No credential"))
+  fun stackTracePage(e: Throwable) =
+    createHTML()
+      .html {
+        body {
+          val sw = StringWriter()
+          e.printStackTrace(PrintWriter(sw))
+          pageTitle()
+          homeLink()
+          h2 { +"Error" }
+          pre { +sw.toString() }
+        }
+      }
+}
 
 fun Application.module(testing: Boolean = false) {
 
@@ -360,6 +386,13 @@ fun Application.module(testing: Boolean = false) {
     }
 
     authenticate(userAuth) {
+      get(LOGOUT) {
+        authorizedUser(true)
+        redirectTo {
+          baseUrl
+        }
+      }
+
       get(ADD_TRADE) {
         respondWith {
           page {
@@ -367,8 +400,7 @@ fun Application.module(testing: Boolean = false) {
               if (googleCredential.get().isNull())
                 h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
               else {
-                val auth = call.request.header(HttpHeaders.Authorization)?.removePrefix("Basic ")
-                val user = authMap[auth] ?: throw InvalidRequestException("Unrecognized user")
+                val user = authorizedUser(false)
                 val ts = tradingSheet()
                 val params = call.request.queryParameters
                 val buyer =

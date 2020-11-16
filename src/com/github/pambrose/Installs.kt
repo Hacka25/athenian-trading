@@ -18,6 +18,11 @@
 package com.github.pambrose
 
 import com.github.pambrose.EnvVar.FILTER_LOG
+import com.github.pambrose.PageUtils.page
+import com.github.pambrose.PageUtils.rootChoices
+import com.github.pambrose.PageUtils.stackTracePage
+import com.github.pambrose.PageUtils.tradingSheet
+import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.TradingServer.adminAuth
 import com.github.pambrose.TradingServer.authMap
 import com.github.pambrose.TradingServer.userAuth
@@ -50,7 +55,7 @@ object Installs : KLogging() {
 
       if (FILTER_LOG.getEnv(true))
         filter { call ->
-          call.request.path().let { it.startsWith("/") && !it.startsWith("/static/") }
+          call.request.path().let { it.startsWith("/") && !it.startsWith("$STATIC_ROOT/") }
         }
 
       format { call ->
@@ -91,14 +96,27 @@ object Installs : KLogging() {
       basic(name = userAuth) {
         realm = "Ktor Server"
         validate { cred ->
-          logger.info { "Looking at: ${cred.name}" }
+          //logger.info { "Looking at: ${cred.name}" }
           val users = tradingSheet().users
           val user = users.firstOrNull { it.name == cred.name }
           if (user?.password == cred.password) {
             val str = "${cred.name}:${cred.password}"
             val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
-            authMap[encodedString] = user
-            UserIdPrincipal(user.name)
+            if (authMap.containsKey(encodedString)) {
+              val (_, block) = authMap[encodedString] ?: throw InvalidRequestException("Auth problems")
+              if (block) {
+                logger.info { "Denied login for ${user.name}" }
+                authMap[encodedString] = user to false
+                null
+              } else {
+                logger.info { "Granted login for ${user.name}" }
+                UserIdPrincipal(user.name)
+              }
+            } else {
+              authMap[encodedString] = user to false
+              logger.info { "Created login for ${user.name}" }
+              UserIdPrincipal(user.name)
+            }
           } else null
         }
       }

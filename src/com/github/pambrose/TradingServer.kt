@@ -48,7 +48,7 @@ object TradingServer : KLogging() {
   val baseUrl = EnvVar.BASE_URL.getEnv("http://localhost:8080")
   val googleCredential = AtomicReference<Credential>()
   val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))
-  val authMap = mutableMapOf<String, User>()
+  val authMap = mutableMapOf<String, Pair<User, Boolean>>()
 
   @JvmStatic
   fun main(args: Array<String>) {
