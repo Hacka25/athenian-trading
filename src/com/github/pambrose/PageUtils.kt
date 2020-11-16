@@ -118,10 +118,12 @@ object PageUtils : KLogging() {
         a { href = "https://docs.google.com/spreadsheets/d/$spreadsheetId/"; target = "_blank"; +"Google Sheet" }
       }
       li {
-        a { href = REAUTH; +"Reauthorize" }
+        a { href = REAUTH; +"Reauthorize with Google" }
       }
       li {
         a { href = USERS.asPath(); +"Users" }
+        rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
+        a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
       }
       li {
         a { href = ITEMS.asPath(); +"Goods and services" }
