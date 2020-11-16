@@ -32,6 +32,7 @@ import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.OAUTH_CB
+import com.github.pambrose.Paths.REAUTH
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.Paths.STYLES_CSS
 import com.github.pambrose.TradingServer.adminAuth
@@ -160,6 +161,10 @@ object Routes : KLogging() {
                 adminChoices()
               }
             }
+        }
+
+        get(REAUTH) {
+          redirectTo { authPageUrl() }
         }
 
         get<Admin> { arg ->
@@ -373,6 +378,7 @@ object Routes : KLogging() {
 }
 
 object Paths {
+  const val REAUTH = "/reauth"
   const val ADMIN = "/admin"
   const val ADD_TRADE = "/trade"
   const val OAUTH_CB = "/oauth-cd"

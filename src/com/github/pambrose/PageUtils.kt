@@ -21,6 +21,7 @@ import com.github.pambrose.Actions.*
 import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
+import com.github.pambrose.Paths.REAUTH
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.Paths.STYLES_CSS
 import com.github.pambrose.TradingServer.APP_TITLE
@@ -117,9 +118,10 @@ object PageUtils : KLogging() {
         a { href = "https://docs.google.com/spreadsheets/d/$spreadsheetId/"; target = "_blank"; +"Google Sheet" }
       }
       li {
+        a { href = REAUTH; +"Reauthorize" }
+      }
+      li {
         a { href = USERS.asPath(); +"Users" }
-        rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
-        a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
       }
       li {
         a { href = ITEMS.asPath(); +"Goods and services" }
