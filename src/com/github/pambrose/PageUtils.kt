@@ -17,7 +17,6 @@
 
 package com.github.pambrose
 
-import com.github.pambrose.Actions.*
 import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
@@ -29,6 +28,7 @@ import com.github.pambrose.TradingServer.authMap
 import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.spreadsheetId
 import com.github.pambrose.common.util.pathOf
+import com.github.pambrose.pages.AdminPage.Actions.*
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -142,6 +142,7 @@ object PageUtils : KLogging() {
     }
   }
 
+  fun getResourceAsText(path: String) = PageUtils::class.java.getResource(path).readText()
 }
 
 suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
