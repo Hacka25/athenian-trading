@@ -28,6 +28,7 @@ import com.github.pambrose.TradingServer.authMap
 import com.github.pambrose.TradingServer.userAuth
 import com.github.pambrose.common.features.HerokuHttpsRedirect
 import com.github.pambrose.common.response.respondWith
+import com.github.pambrose.common.util.isNotNull
 import com.github.pambrose.common.util.simpleClassName
 import io.ktor.application.*
 import io.ktor.auth.*
@@ -97,8 +98,8 @@ object Installs : KLogging() {
         realm = "Ktor Server"
         validate { cred ->
           val users = tradingSheet().users
-          val user = users.firstOrNull { it.name.toLowerCase() == cred.name.toLowerCase() }
-          if (user?.password?.toLowerCase() == cred.password.toLowerCase()) {
+          val user = users.firstOrNull { it.name.equals(cred.name, ignoreCase = true) }
+          if (user.isNotNull() && user.password.equals(cred.password, ignoreCase = true)) {
             val str = "${cred.name}:${cred.password}"
             val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
             if (authMap.containsKey(encodedString)) {
