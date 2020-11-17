@@ -100,7 +100,7 @@ object AdminPage {
         }
         CALC -> {
           homeLink()
-          h3 { +"Calculate Balances" }
+          h3 { +"Balances" }
           ts.writeBalances()
             .also { elems ->
               table {
