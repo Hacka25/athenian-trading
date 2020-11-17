@@ -25,9 +25,12 @@ import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rootChoices
 import com.github.pambrose.PageUtils.tradeChoices
 import com.github.pambrose.Paths.ADMIN
+import com.github.pambrose.Paths.FAV_ICON
 import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.OAUTH_CB
 import com.github.pambrose.Paths.REAUTH
+import com.github.pambrose.Paths.ROBOTS
+import com.github.pambrose.Paths.ROOT
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.Paths.STYLES_CSS
 import com.github.pambrose.Paths.TRADE
@@ -69,8 +72,7 @@ object Routes : KLogging() {
 
   fun Application.routes() {
     routing {
-
-      get("/") {
+      get(ROOT) {
         respondWith {
           page(false) {
             div { this@page.rootChoices() }
@@ -79,7 +81,6 @@ object Routes : KLogging() {
       }
 
       authenticate(adminAuth) {
-
         get(REAUTH) { redirectTo { authPageUrl() } }
 
         get(ADMIN) {
@@ -114,9 +115,9 @@ object Routes : KLogging() {
 
       get(STYLES_CSS) { cssPage() }
 
-      get("/favicon.ico") { redirectTo { pathOf(STATIC_ROOT, "favicon.ico") } }
+      get(FAV_ICON) { redirectTo { pathOf(STATIC_ROOT, "favicon.ico") } }
 
-      get("/robots.txt") { respondWith(Plain) { getResourceAsText("/static/robots.txt") } }
+      get(ROBOTS) { respondWith(Plain) { getResourceAsText("/static/robots.txt") } }
 
       static(STATIC_ROOT) { resources("static") }
     }
@@ -124,6 +125,7 @@ object Routes : KLogging() {
 }
 
 object Paths {
+  const val ROOT = "/"
   const val REAUTH = "/reauth"
   const val ADMIN = "/admin"
   const val TRADE = "/trade"
@@ -131,4 +133,6 @@ object Paths {
   const val STATIC_ROOT = "/static"
   const val STYLES_CSS = "/styles.css"
   const val LOGOUT = "/logout"
+  const val FAV_ICON = "favicon.ico"
+  const val ROBOTS = "robots.txt"
 }

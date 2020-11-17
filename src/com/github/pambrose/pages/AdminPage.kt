@@ -128,7 +128,6 @@ object AdminPage {
         }
       }
     }
-
 }
 
 @Location("$ADMIN/{action}")
