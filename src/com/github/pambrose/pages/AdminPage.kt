@@ -19,11 +19,11 @@ package com.github.pambrose.pages
 
 import com.github.pambrose.InvalidRequestException
 import com.github.pambrose.ItemAmount
-import com.github.pambrose.PageUtils
 import com.github.pambrose.PageUtils.adminChoices
 import com.github.pambrose.PageUtils.homeLink
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rawHtml
+import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.TradeSide
 import com.github.pambrose.pages.AdminPage.Actions.*
@@ -49,7 +49,7 @@ object AdminPage {
   fun adminPage(arg: Admin) =
     page {
       adminChoices()
-      val ts = PageUtils.tradingSheet()
+      val ts = tradingSheet()
       when (arg.action.asAction()) {
         USERS -> {
           homeLink()
@@ -103,8 +103,8 @@ object AdminPage {
         }
         CALC -> {
           homeLink()
-          h2 { +"Balances" }
-          ts.calcBalances()
+          h2 { +"Calculate Balances" }
+          ts.writeBalances()
             .also { elems ->
               table {
                 elems.forEach { row ->

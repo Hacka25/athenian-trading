@@ -118,16 +118,25 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       it.value
     }
 
-  fun calcBalances(): Map<User, List<ItemAmount>> =
-    (allocations + trades)
-      .groupBy({ it.user to it.item }, { it.amount })
-      .map { TradeSide(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
-      .filter { it.amount != 0 }
-      .groupBy({ it.user }, { ItemAmount(it.amount, it.item) })
-      .toSortedMap(compareBy { it.name })
+  fun calcBalances() =
+    measureTimedValue {
+      (allocations + trades)
+        .groupBy({ it.user to it.item }, { it.amount })
+        .map { TradeSide(it.key.first, ItemAmount(it.value.sum(), it.key.second)) }
+        .filter { it.amount != 0 }
+        .groupBy({ it.user }, { ItemAmount(it.amount, it.item) })
+        .toSortedMap(compareBy { it.name })
+    }.let {
+      logger.info { "Calculated balances: ${it.duration}" }
+      it.value
+    }
+
+  fun writeBalances() =
+    calcBalances()
       .also { map ->
         val inserts = mutableListOf<List<Any>>()
         val names = mutableListOf<String>()
+
         map.forEach { (user, list) ->
           list.sortedWith(compareBy { it.desc })
             .forEach { itemAmount ->
@@ -136,17 +145,12 @@ class TradingSheet(private val ssId: String, credential: Credential) {
             }
         }
 
-        measureTimedValue {
-          service
-            .apply {
-              val range = BalancesRange.name
-              clear(ssId, range)
-              append(ssId, range, inserts, insertDataOption = OVERWRITE)
-            }
-        }.let {
-          logger.info { "Calculated balances: ${it.duration}" }
-          it.value
-        }
+        service
+          .apply {
+            val range = BalancesRange.name
+            clear(ssId, range)
+            append(ssId, range, inserts, insertDataOption = OVERWRITE)
+          }
       }
 
   companion object : KLogging()

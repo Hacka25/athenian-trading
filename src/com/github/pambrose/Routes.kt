@@ -23,13 +23,14 @@ import com.github.pambrose.PageUtils.authorizedUser
 import com.github.pambrose.PageUtils.getResourceAsText
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rootChoices
-import com.github.pambrose.Paths.ADD_TRADE
+import com.github.pambrose.PageUtils.tradeChoices
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.OAUTH_CB
 import com.github.pambrose.Paths.REAUTH
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.Paths.STYLES_CSS
+import com.github.pambrose.Paths.TRADE
 import com.github.pambrose.TradingServer.adminAuth
 import com.github.pambrose.TradingServer.authCodeFlow
 import com.github.pambrose.TradingServer.baseUrl
@@ -40,15 +41,18 @@ import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
 import com.github.pambrose.common.util.pathOf
-import com.github.pambrose.pages.AddTrade.addTradePage
-import com.github.pambrose.pages.AddTrade.executeTrade
 import com.github.pambrose.pages.Admin
 import com.github.pambrose.pages.AdminPage.adminPage
 import com.github.pambrose.pages.CssPage.cssPage
 import com.github.pambrose.pages.OauthCallback.oauthCallback
+import com.github.pambrose.pages.Trade
+import com.github.pambrose.pages.TradePage.Actions.ADD
+import com.github.pambrose.pages.TradePage.addTradePage
+import com.github.pambrose.pages.TradePage.executeTrade
 import io.ktor.application.*
 import io.ktor.auth.*
 import io.ktor.http.*
+import io.ktor.http.ContentType.Text.Plain
 import io.ktor.http.content.*
 import io.ktor.locations.*
 import io.ktor.request.*
@@ -99,9 +103,11 @@ object Routes : KLogging() {
           redirectTo { baseUrl }
         }
 
-        get(ADD_TRADE) { respondWith { addTradePage() } }
+        get(TRADE) { respondWith { page { tradeChoices() } } }
 
-        post(ADD_TRADE) { executeTrade() }
+        get<Trade> { arg -> respondWith { addTradePage(arg) } }
+
+        post("$TRADE/$ADD") { executeTrade() }
       }
 
       get(OAUTH_CB) { oauthCallback() }
@@ -110,9 +116,7 @@ object Routes : KLogging() {
 
       get("/favicon.ico") { redirectTo { pathOf(STATIC_ROOT, "favicon.ico") } }
 
-      get("/robots.txt") {
-        respondWith(ContentType.Text.Plain) { getResourceAsText("/static/robots.txt") }
-      }
+      get("/robots.txt") { respondWith(Plain) { getResourceAsText("/static/robots.txt") } }
 
       static(STATIC_ROOT) { resources("static") }
     }
@@ -122,7 +126,7 @@ object Routes : KLogging() {
 object Paths {
   const val REAUTH = "/reauth"
   const val ADMIN = "/admin"
-  const val ADD_TRADE = "/trade"
+  const val TRADE = "/trade"
   const val OAUTH_CB = "/oauth-cd"
   const val STATIC_ROOT = "/static"
   const val STYLES_CSS = "/styles.css"

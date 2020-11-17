@@ -23,49 +23,83 @@ import com.github.pambrose.PageUtils.authorizedUser
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradeChoices
-import com.github.pambrose.Routes.authPageUrl
+import com.github.pambrose.PageUtils.tradingSheet
+import com.github.pambrose.Paths.TRADE
 import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.User.Companion.toUser
-import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
-import com.github.pambrose.pages.AddTrade.ParamNames.*
+import com.github.pambrose.pages.TradePage.Actions.ADD
+import com.github.pambrose.pages.TradePage.Actions.BALANCE
+import com.github.pambrose.pages.TradePage.Actions.Companion.asAction
+import com.github.pambrose.pages.TradePage.ParamNames.*
 import io.ktor.application.*
+import io.ktor.locations.*
 import io.ktor.request.*
 import kotlinx.html.*
 
-object AddTrade {
+object TradePage {
+
+  enum class Actions(val action: String) {
+    ADD("add"), BALANCE("balance");
+
+    fun asPath() = "$TRADE/$action"
+
+    companion object {
+      fun String.asAction() =
+        values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
+    }
+  }
 
   enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
 
-  fun PipelineCall.addTradePage() =
+  fun PipelineCall.addTradePage(arg: Trade) =
     page {
-      div {
-        if (googleCredential.get().isNull())
-          h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
-        else {
-          val user = authorizedUser(false)
-          val ts = PageUtils.tradingSheet()
-          val params = call.request.queryParameters
-          val buyer =
-            TradeSide(user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
-                      ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
-                                 params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
-          val seller =
-            TradeSide(params[SELLER_NAME.name]?.toUser() ?: (ts.users - user)[0],
-                      ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
-                                 params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
+      tradeChoices()
+      if (googleCredential.get().isNull())
+        h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
+      else {
+        val user = authorizedUser(false)
+        val ts = tradingSheet()
+        when (arg.action.asAction()) {
+          ADD -> {
+            div {
+              val params = call.request.queryParameters
+              val buyer =
+                TradeSide(user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
+                          ItemAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
+                                     params[BUYER_ITEM.name]?.toItem() ?: ts.items[0]))
+              val seller =
+                TradeSide(params[SELLER_NAME.name]?.toUser() ?: (ts.users - user)[0],
+                          ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
+                                     params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
 
-          this@page.tradeChoices()
-          h2 { +"Add a trade" }
-          this@page.addTradeForm(ts, buyer, seller)
+              h2 { +"Add a trade" }
+              this@page.addTradeForm(ts, buyer, seller)
+            }
+          }
+          BALANCE -> {
+            val name = user.name
+            ts.calcBalances()
+              .filter { it.key.name == name }
+              .map { it.key.name to it.value }
+              .firstOrNull()
+              ?.second
+              ?.also {
+                div { +"Balance for $name:" }
+                table {
+                  style = "padding-left:20;padding-top:10;"
+                  it.sortedWith(compareBy { it.item.desc }).forEach { tr { td { +"$it" } } }
+                }
+              } ?: throw InvalidRequestException("Missing name $name")
+          }
         }
       }
     }
 
   suspend fun PipelineCall.executeTrade() {
     val params = call.receiveParameters()
-    val ts = PageUtils.tradingSheet()
+    val ts = tradingSheet()
     val buyer =
       TradeSide(ts.users.firstOrNull { it.name == params[BUYER_NAME.name] }
                   ?: throw InvalidRequestException("Buyer user"),
@@ -82,46 +116,40 @@ object AddTrade {
                            ts.items.firstOrNull { it.desc == params[SELLER_ITEM.name] }
                              ?: throw InvalidRequestException("Seller item")))
 
-    if (googleCredential.get().isNull())
-      redirectTo { authPageUrl() }
-    else
-      respondWith {
-        page {
-          tradeChoices()
-          when {
-            buyer.user == seller.user -> {
-              h2 { style = "color:red;"; +"Error: names cannot be the same" }
-              addTradeForm(ts, buyer, seller)
-            }
-            buyer.itemAmount.amount <= 0 || seller.itemAmount.amount <= 0 -> {
-              h2 { style = "color:red;"; +"Error: amounts must be a positive number" }
-              addTradeForm(ts, buyer, seller)
-            }
-            buyer.itemAmount.item == seller.itemAmount.item -> {
-              h2 { style = "color:red;"; +"Error: items cannot be the same" }
-              addTradeForm(ts, buyer, seller)
-            }
-            else -> {
-              h2 { +"Trade added" }
-              ts.addTrade(buyer, seller).apply { div { +first } }
-
-              p { a { href = Paths.ADD_TRADE; +"Add another trade" } }
-            }
+    respondWith {
+      page {
+        tradeChoices()
+        when {
+          buyer.user == seller.user -> {
+            h2 { style = "color:red;"; +"Error: names cannot be the same" }
+            addTradeForm(ts, buyer, seller)
+          }
+          buyer.itemAmount.amount <= 0 || seller.itemAmount.amount <= 0 -> {
+            h2 { style = "color:red;"; +"Error: amounts must be a positive number" }
+            addTradeForm(ts, buyer, seller)
+          }
+          buyer.itemAmount.item == seller.itemAmount.item -> {
+            h2 { style = "color:red;"; +"Error: items cannot be the same" }
+            addTradeForm(ts, buyer, seller)
+          }
+          else -> {
+            h2 { +"Trade added" }
+            ts.addTrade(buyer, seller).apply { div { +first } }
           }
         }
       }
+    }
   }
 
   fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeSide, seller: TradeSide) {
     val width = 50
     form {
-      action = Paths.ADD_TRADE
+      action = "$TRADE/$ADD"
       method = FormMethod.post
 
       table {
-        //tr { td { b { +"Buyer:" } } }
         tr {
-          td { b { +"Buyer:" } }
+          td { b { style = "font-size:20px;"; +"Buyer:" } }
           td {
             select {
               name = BUYER_NAME.name
@@ -146,9 +174,8 @@ object AddTrade {
 
         tr { td { rawHtml(Entities.nbsp.text) } }
 
-        //tr { td { b { +"Seller:" } } }
         tr {
-          td { b { +"Seller:" } }
+          td { b { style = "font-size:20px;"; +"Seller:" } }
           td {
             select {
               name = SELLER_NAME.name
@@ -176,10 +203,17 @@ object AddTrade {
 
         tr {
           td {}
-          td { submitInput { } }
+          td {
+            submitInput {
+              style =
+                "font-size:20px; font-weight:bold; background-color:white; border:1px solid black; border-radius: 5px; padding: 0px 7px; cursor: pointer; height:30; width:100"
+            }
+          }
         }
       }
     }
-
   }
 }
+
+@Location("$TRADE/{action}")
+data class Trade(val action: String)

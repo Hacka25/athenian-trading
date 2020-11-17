@@ -17,18 +17,20 @@
 
 package com.github.pambrose
 
-import com.github.pambrose.Paths.ADD_TRADE
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.REAUTH
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.Paths.STYLES_CSS
+import com.github.pambrose.Paths.TRADE
 import com.github.pambrose.TradingServer.APP_TITLE
 import com.github.pambrose.TradingServer.authMap
 import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.spreadsheetId
 import com.github.pambrose.common.util.pathOf
 import com.github.pambrose.pages.AdminPage.Actions.*
+import com.github.pambrose.pages.TradePage.Actions.ADD
+import com.github.pambrose.pages.TradePage.Actions.BALANCE
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -107,8 +109,8 @@ object PageUtils : KLogging() {
       h2 { style = "color:red;"; +errorMsg }
 
     ul {
-      li { a { href = ADMIN; +"Admin tasks" } }
-      li { a { href = ADD_TRADE; +"Add a trade" } }
+      li { a { href = ADMIN; +"Admin Tasks" } }
+      li { a { href = TRADE; +"Trade Actions" } }
     }
   }
 
@@ -139,6 +141,8 @@ object PageUtils : KLogging() {
   fun BODY.tradeChoices() {
     ul {
       li { a { href = LOGOUT; +"Logout" } }
+      li { a { href = BALANCE.asPath(); +"Balance" } }
+      li { a { href = ADD.asPath(); +"Add a trade" } }
     }
   }
 
