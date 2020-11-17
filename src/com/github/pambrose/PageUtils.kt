@@ -28,9 +28,9 @@ import com.github.pambrose.TradingServer.authMap
 import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.spreadsheetId
 import com.github.pambrose.common.util.pathOf
-import com.github.pambrose.pages.AdminPage.Actions.*
-import com.github.pambrose.pages.TradePage.Actions.ADD
-import com.github.pambrose.pages.TradePage.Actions.BALANCE
+import com.github.pambrose.pages.AdminPage.AdminActions.*
+import com.github.pambrose.pages.TradePage.TradeActions.ADD
+import com.github.pambrose.pages.TradePage.TradeActions.BALANCE
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -89,12 +89,12 @@ object PageUtils : KLogging() {
           e.printStackTrace(PrintWriter(sw))
           pageTitle()
           homeLink()
-          h2 { +"Error" }
+          h3 { +"Error" }
           pre { +sw.toString() }
         }
       }
 
-  fun BODY.pageTitle() = h1 {
+  fun BODY.pageTitle() = h2 {
     span {
       img { style = "width:1em;height:1em;"; src = pathOf(STATIC_ROOT, "athenian.png") }
       rawHtml(Entities.nbsp.text)
@@ -106,7 +106,7 @@ object PageUtils : KLogging() {
 
   fun BODY.rootChoices(errorMsg: String = "") {
     if (errorMsg.isNotBlank())
-      h2 { style = "color:red;"; +errorMsg }
+      h3 { style = "color:red;"; +errorMsg }
 
     ul {
       li { a { href = ADMIN; +"Admin Tasks" } }

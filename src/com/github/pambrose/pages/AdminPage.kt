@@ -26,14 +26,14 @@ import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.TradeSide
-import com.github.pambrose.pages.AdminPage.Actions.*
-import com.github.pambrose.pages.AdminPage.Actions.Companion.asAction
+import com.github.pambrose.pages.AdminPage.AdminActions.*
+import com.github.pambrose.pages.AdminPage.AdminActions.Companion.asAdminAction
 import io.ktor.locations.*
 import kotlinx.html.*
 
 object AdminPage {
 
-  enum class Actions(val action: String) {
+  enum class AdminActions(val action: String) {
     USERS("users"), REFRESH_USERS("refresh-users"), ITEMS("items"),
     REFRESH_ITEMS("refresh-items"), ALLOCATIONS("allocations"),
     RANDOM_TRADE("random"), CLEAR_TRADES("clear"), CALC("calc");
@@ -41,7 +41,7 @@ object AdminPage {
     fun asPath() = "$ADMIN/$action"
 
     companion object {
-      fun String.asAction() =
+      fun String.asAdminAction() =
         values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
     }
   }
@@ -50,30 +50,30 @@ object AdminPage {
     page {
       adminChoices()
       val ts = tradingSheet()
-      when (arg.action.asAction()) {
+      when (arg.action.asAdminAction()) {
         USERS -> {
           homeLink()
-          h2 { +"Users" }
+          h3 { +"Users" }
           table { ts.users.forEach { tr { td { +it.name } } } }
         }
         REFRESH_USERS -> {
           homeLink()
-          h2 { +"Users Refreshed" }
+          h3 { +"Users Refreshed" }
           table { ts.refreshUsers().forEach { tr { td { +it.name } } } }
         }
         ITEMS -> {
           homeLink()
-          h2 { +"Goods and services" }
+          h3 { +"Goods and services" }
           table { ts.items.forEach { tr { td { +it.desc } } } }
         }
         REFRESH_ITEMS -> {
           homeLink()
-          h2 { +"Goods and services Refreshed" }
+          h3 { +"Goods and services Refreshed" }
           table { ts.refreshItems().forEach { tr { td { +it.desc } } } }
         }
         ALLOCATIONS -> {
           homeLink()
-          h2 { +"Allocations" }
+          h3 { +"Allocations" }
           ts.allocations
             .also { items ->
               table {
@@ -87,23 +87,20 @@ object AdminPage {
             }
         }
         RANDOM_TRADE -> {
-          h2 { +"Random trade added" }
+          h3 { +"Random trade added" }
 
           val buyer = TradeSide(ts.users.random(), ItemAmount((1..10).random(), ts.items.random()))
           val seller = TradeSide((ts.users - buyer.user).random(),
                                  ItemAmount((1..10).random(), (ts.items - buyer.itemAmount.item).random()))
-          ts.addTrade(buyer, seller)
-            .apply {
-              div { +first }
-            }
+          ts.addTrade(buyer, seller).apply { div { +first } }
         }
         CLEAR_TRADES -> {
-          h2 { +"Trades cleared" }
+          h3 { +"Trades cleared" }
           ts.clearTrades().also { pre { +it.toString() } }
         }
         CALC -> {
           homeLink()
-          h2 { +"Calculate Balances" }
+          h3 { +"Calculate Balances" }
           ts.writeBalances()
             .also { elems ->
               table {

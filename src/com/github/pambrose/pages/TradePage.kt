@@ -29,10 +29,10 @@ import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
-import com.github.pambrose.pages.TradePage.Actions.ADD
-import com.github.pambrose.pages.TradePage.Actions.BALANCE
-import com.github.pambrose.pages.TradePage.Actions.Companion.asAction
 import com.github.pambrose.pages.TradePage.ParamNames.*
+import com.github.pambrose.pages.TradePage.TradeActions.ADD
+import com.github.pambrose.pages.TradePage.TradeActions.BALANCE
+import com.github.pambrose.pages.TradePage.TradeActions.Companion.asTradeAction
 import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
@@ -40,13 +40,13 @@ import kotlinx.html.*
 
 object TradePage {
 
-  enum class Actions(val action: String) {
+  enum class TradeActions(val action: String) {
     ADD("add"), BALANCE("balance");
 
     fun asPath() = "$TRADE/$action"
 
     companion object {
-      fun String.asAction() =
+      fun String.asTradeAction() =
         values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
     }
   }
@@ -57,11 +57,11 @@ object TradePage {
     page {
       tradeChoices()
       if (googleCredential.get().isNull())
-        h2 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
+        h3 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
       else {
         val user = authorizedUser(false)
         val ts = tradingSheet()
-        when (arg.action.asAction()) {
+        when (arg.action.asTradeAction()) {
           ADD -> {
             div {
               val params = call.request.queryParameters
@@ -74,7 +74,7 @@ object TradePage {
                           ItemAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
                                      params[SELLER_ITEM.name]?.toItem() ?: ts.items[0]))
 
-              h2 { +"Add a trade" }
+              h3 { +"Add a trade" }
               this@page.addTradeForm(ts, buyer, seller)
             }
           }
@@ -86,10 +86,13 @@ object TradePage {
               .firstOrNull()
               ?.second
               ?.also {
-                div { +"Balance for $name:" }
-                table {
-                  style = "padding-left:20;padding-top:10;"
-                  it.sortedWith(compareBy { it.item.desc }).forEach { tr { td { +"$it" } } }
+                div {
+                  style = "padding-left:20;"
+                  +"Balance for $name"
+                  table {
+                    style = "padding-left:20; padding-top:10;"
+                    it.sortedWith(compareBy { it.item.desc }).forEach { tr { td { +"$it" } } }
+                  }
                 }
               } ?: throw InvalidRequestException("Missing name $name")
           }
@@ -121,19 +124,19 @@ object TradePage {
         tradeChoices()
         when {
           buyer.user == seller.user -> {
-            h2 { style = "color:red;"; +"Error: names cannot be the same" }
+            h3 { style = "color:red;"; +"Error: names cannot be the same" }
             addTradeForm(ts, buyer, seller)
           }
           buyer.itemAmount.amount <= 0 || seller.itemAmount.amount <= 0 -> {
-            h2 { style = "color:red;"; +"Error: amounts must be a positive number" }
+            h3 { style = "color:red;"; +"Error: amounts must be a positive number" }
             addTradeForm(ts, buyer, seller)
           }
           buyer.itemAmount.item == seller.itemAmount.item -> {
-            h2 { style = "color:red;"; +"Error: items cannot be the same" }
+            h3 { style = "color:red;"; +"Error: items cannot be the same" }
             addTradeForm(ts, buyer, seller)
           }
           else -> {
-            h2 { +"Trade added" }
+            h3 { +"Trade added" }
             ts.addTrade(buyer, seller).apply { div { +first } }
           }
         }

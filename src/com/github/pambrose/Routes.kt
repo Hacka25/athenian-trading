@@ -46,7 +46,7 @@ import com.github.pambrose.pages.AdminPage.adminPage
 import com.github.pambrose.pages.CssPage.cssPage
 import com.github.pambrose.pages.OauthCallback.oauthCallback
 import com.github.pambrose.pages.Trade
-import com.github.pambrose.pages.TradePage.Actions.ADD
+import com.github.pambrose.pages.TradePage.TradeActions.ADD
 import com.github.pambrose.pages.TradePage.addTradePage
 import com.github.pambrose.pages.TradePage.executeTrade
 import io.ktor.application.*
