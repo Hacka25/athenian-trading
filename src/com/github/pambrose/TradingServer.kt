@@ -17,6 +17,8 @@
 
 package com.github.pambrose
 
+import com.github.pambrose.EnvVar.BASE_URL
+import com.github.pambrose.EnvVar.SPREADSHEET_ID
 import com.github.pambrose.GoogleApiUtils.authorizationCodeFlow
 import com.github.pambrose.common.util.Version
 import com.github.pambrose.common.util.Version.Companion.versionDesc
@@ -39,13 +41,13 @@ object TradingServer : KLogging() {
   const val userId = "owlsowls"
   const val adminAuth = "adminAuth"
   const val userAuth = "userAuth"
-  const val spreadsheetId = "1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4"
 
   private val startTime = TimeSource.Monotonic.markNow()
   val serverSessionId = randomId(10)
   val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   val upTime get() = startTime.elapsedNow()
-  val baseUrl = EnvVar.BASE_URL.getEnv("http://localhost:8080")
+  val baseUrl = BASE_URL.getEnv("http://localhost:8080")
+  val spreadsheetId = SPREADSHEET_ID.getEnv("1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4")
   val googleCredential = AtomicReference<Credential>()
   val authCodeFlow = authorizationCodeFlow("AUTH_CREDENTIALS", listOf(SPREADSHEETS))
   val authMap = mutableMapOf<String, Pair<User, Boolean>>()

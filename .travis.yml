@@ -1,0 +1,14 @@
+language: java
+
+jdk:
+  - openjdk11
+
+before_script:
+  - chmod +x gradlew
+
+script:
+  - ./gradlew check
+
+notifications:
+  email:
+    - pambrose@mac.com

@@ -21,6 +21,7 @@ import com.github.pambrose.common.util.isNotNull
 
 enum class EnvVar {
   BASE_URL,
+  SPREADSHEET_ID,
   FILTER_LOG,
   REDIRECT_HOSTNAME,
   FORWARDED_ENABLED,

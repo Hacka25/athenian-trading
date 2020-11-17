@@ -26,9 +26,9 @@ import com.github.pambrose.PageUtils.rootChoices
 import com.github.pambrose.PageUtils.tradeChoices
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.Paths.FAV_ICON
+import com.github.pambrose.Paths.GOOGLE_AUTH
 import com.github.pambrose.Paths.LOGOUT
 import com.github.pambrose.Paths.OAUTH_CB
-import com.github.pambrose.Paths.REAUTH
 import com.github.pambrose.Paths.ROBOTS
 import com.github.pambrose.Paths.ROOT
 import com.github.pambrose.Paths.STATIC_ROOT
@@ -68,7 +68,8 @@ object Routes : KLogging() {
 
   val redirectUrl = "$baseUrl$OAUTH_CB"
 
-  fun authPageUrl() = googleAuthPageUrl(authCodeFlow, serverSessionId, redirectUrl)
+  fun googleAuthPageUrl() =
+    googleAuthPageUrl(authCodeFlow, serverSessionId, redirectUrl)
 
   fun Application.routes() {
     routing {
@@ -81,18 +82,18 @@ object Routes : KLogging() {
       }
 
       authenticate(adminAuth) {
-        get(REAUTH) { redirectTo { authPageUrl() } }
+        get(GOOGLE_AUTH) { redirectTo { googleAuthPageUrl() } }
 
         get(ADMIN) {
           if (googleCredential.get().isNull())
-            redirectTo { authPageUrl() }
+            redirectTo { googleAuthPageUrl() }
           else
             respondWith { page { adminChoices() } }
         }
 
         get<Admin> { arg ->
           if (googleCredential.get().isNull())
-            redirectTo { authPageUrl() }
+            redirectTo { googleAuthPageUrl() }
           else
             respondWith { adminPage(arg) }
         }
@@ -126,7 +127,7 @@ object Routes : KLogging() {
 
 object Paths {
   const val ROOT = "/"
-  const val REAUTH = "/reauth"
+  const val GOOGLE_AUTH = "/auth"
   const val ADMIN = "/admin"
   const val TRADE = "/trade"
   const val OAUTH_CB = "/oauth-cd"
