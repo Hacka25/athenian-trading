@@ -89,7 +89,7 @@ object Installs : KLogging() {
       basic(name = adminAuth) {
         realm = "Ktor Server"
         validate { cred ->
-          if (cred.name == "admin" && cred.password == "admin") UserIdPrincipal(cred.name) else null
+          if (cred.name.toLowerCase() == "admin" && cred.password.toLowerCase() == "admin") UserIdPrincipal(cred.name) else null
         }
       }
 
@@ -97,8 +97,8 @@ object Installs : KLogging() {
         realm = "Ktor Server"
         validate { cred ->
           val users = tradingSheet().users
-          val user = users.firstOrNull { it.name == cred.name }
-          if (user?.password == cred.password) {
+          val user = users.firstOrNull { it.name.toLowerCase() == cred.name.toLowerCase() }
+          if (user?.password?.toLowerCase() == cred.password.toLowerCase()) {
             val str = "${cred.name}:${cred.password}"
             val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
             if (authMap.containsKey(encodedString)) {
