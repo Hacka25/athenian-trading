@@ -17,12 +17,15 @@
 
 package com.github.pambrose
 
-import com.github.pambrose.Installs.installs
-import com.github.pambrose.Routes.routes
-import com.github.pambrose.TradingServer.baseUrl
-import io.ktor.application.*
-
-fun Application.module(testing: Boolean = false) {
-  installs(!baseUrl.contains("localhost"))
-  routes()
+object Paths {
+  const val ROOT = "/"
+  const val GOOGLE_AUTH = "/auth"
+  const val ADMIN = "/admin"
+  const val TRADE = "/trade"
+  const val OAUTH_CB = "/oauth-cd"
+  const val STATIC_ROOT = "/static"
+  const val STYLES_CSS = "/styles.css"
+  const val LOGOUT = "/logout"
+  const val FAV_ICON = "favicon.ico"
+  const val ROBOTS = "robots.txt"
 }

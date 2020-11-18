@@ -40,7 +40,7 @@ object TradingServer : KLogging() {
   const val APP_TITLE = "Athenian Trading App"
   const val userId = "owlsowls"
   const val adminAuth = "adminAuth"
-  const val userAuth = "userAuth"
+  const val tradingAuth = "userAuth"
 
   private val startTime = TimeSource.Monotonic.markNow()
   val serverSessionId = randomId(10)

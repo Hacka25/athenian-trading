@@ -17,7 +17,7 @@
 
 package com.github.pambrose
 
-import com.github.pambrose.EnvVar.FILTER_LOG
+import com.github.pambrose.EnvVar.*
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rootChoices
 import com.github.pambrose.PageUtils.stackTracePage
@@ -25,7 +25,7 @@ import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.STATIC_ROOT
 import com.github.pambrose.TradingServer.adminAuth
 import com.github.pambrose.TradingServer.authMap
-import com.github.pambrose.TradingServer.userAuth
+import com.github.pambrose.TradingServer.tradingAuth
 import com.github.pambrose.common.features.HerokuHttpsRedirect
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNotNull
@@ -42,12 +42,7 @@ import java.util.*
 
 object Installs : KLogging() {
 
-  fun Application.installs(
-    production: Boolean,
-    redirectHostname: String,
-    forwardedHeaderSupportEnabled: Boolean,
-    xforwardedHeaderSupportEnabled: Boolean
-  ) {
+  fun Application.installs(production: Boolean) {
 
     install(Locations)
 
@@ -88,14 +83,14 @@ object Installs : KLogging() {
 
     install(Authentication) {
       basic(name = adminAuth) {
-        realm = "Ktor Server"
+        realm = "Admin Auth"
         validate { cred ->
           if (cred.name.toLowerCase() == "admin" && cred.password.toLowerCase() == "admin") UserIdPrincipal(cred.name) else null
         }
       }
 
-      basic(name = userAuth) {
-        realm = "Ktor Server"
+      basic(name = tradingAuth) {
+        realm = "Trading Auth"
         validate { cred ->
           val users = tradingSheet().users
           val user = users.firstOrNull { it.name.equals(cred.name, ignoreCase = true) }
@@ -140,28 +135,32 @@ object Installs : KLogging() {
       }
     }
 
-    if (forwardedHeaderSupportEnabled) {
+    if (FORWARDED_ENABLED.getEnv(default = false)) {
       logger.info { "Enabling ForwardedHeaderSupport" }
       install(ForwardedHeaderSupport)
     } else {
       logger.info { "Not enabling ForwardedHeaderSupport" }
     }
 
-    if (xforwardedHeaderSupportEnabled) {
+
+    if (XFORWARDED_ENABLED.getEnv(false)) {
       logger.info { "Enabling XForwardedHeaderSupport" }
       install(XForwardedHeaderSupport)
     } else {
       logger.info { "Not enabling XForwardedHeaderSupport" }
     }
 
-    if (production && redirectHostname.isNotBlank()) {
-      logger.info { "Installing HerokuHttpsRedirect using: $redirectHostname" }
-      install(HerokuHttpsRedirect) {
-        host = redirectHostname
-        permanentRedirect = false
+    REDIRECT_HOSTNAME.getEnv(default = "")
+      .also { redirectHostname ->
+        if (production && redirectHostname.isNotBlank()) {
+          logger.info { "Installing HerokuHttpsRedirect using: $redirectHostname" }
+          install(HerokuHttpsRedirect) {
+            host = redirectHostname
+            permanentRedirect = false
+          }
+        } else {
+          logger.info { "Not installing HerokuHttpsRedirect" }
+        }
       }
-    } else {
-      logger.info { "Not installing HerokuHttpsRedirect" }
-    }
   }
 }

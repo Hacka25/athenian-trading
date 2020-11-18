@@ -39,7 +39,7 @@ import com.github.pambrose.TradingServer.authCodeFlow
 import com.github.pambrose.TradingServer.baseUrl
 import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.serverSessionId
-import com.github.pambrose.TradingServer.userAuth
+import com.github.pambrose.TradingServer.tradingAuth
 import com.github.pambrose.common.response.redirectTo
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
@@ -99,7 +99,7 @@ object Routes : KLogging() {
         }
       }
 
-      authenticate(userAuth) {
+      authenticate(tradingAuth) {
         get(LOGOUT) {
           authorizedUser(true)
           redirectTo { baseUrl }
@@ -123,17 +123,4 @@ object Routes : KLogging() {
       static(STATIC_ROOT) { resources("static") }
     }
   }
-}
-
-object Paths {
-  const val ROOT = "/"
-  const val GOOGLE_AUTH = "/auth"
-  const val ADMIN = "/admin"
-  const val TRADE = "/trade"
-  const val OAUTH_CB = "/oauth-cd"
-  const val STATIC_ROOT = "/static"
-  const val STYLES_CSS = "/styles.css"
-  const val LOGOUT = "/logout"
-  const val FAV_ICON = "favicon.ico"
-  const val ROBOTS = "robots.txt"
 }
