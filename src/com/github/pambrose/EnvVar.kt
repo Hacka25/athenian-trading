@@ -39,4 +39,3 @@ enum class EnvVar {
 
   fun getRequiredEnv() = getEnvOrNull() ?: throw InvalidConfigurationException("Missing $name value")
 }
-

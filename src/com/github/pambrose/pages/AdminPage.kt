@@ -17,7 +17,6 @@
 
 package com.github.pambrose.pages
 
-import com.github.pambrose.InvalidRequestException
 import com.github.pambrose.ItemAmount
 import com.github.pambrose.PageUtils.adminChoices
 import com.github.pambrose.PageUtils.homeLink
@@ -27,30 +26,24 @@ import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.TradeSide
 import com.github.pambrose.pages.AdminPage.AdminActions.*
-import com.github.pambrose.pages.AdminPage.AdminActions.Companion.asAdminAction
 import io.ktor.locations.*
 import kotlinx.html.*
 
 object AdminPage {
 
-  enum class AdminActions(val action: String) {
-    USERS("users"), REFRESH_USERS("refresh-users"), ITEMS("items"),
-    REFRESH_ITEMS("refresh-items"), ALLOCATIONS("allocations"),
-    RANDOM_TRADE("random"), CLEAR_TRADES("clear"), CALC("calc");
+  enum class AdminActions {
+    USERS, REFRESH_USERS, ITEMS,
+    REFRESH_ITEMS, ALLOCATIONS,
+    RANDOM_TRADE, CLEAR_TRADES, CALC;
 
-    fun asPath() = "$ADMIN/$action"
-
-    companion object {
-      fun String.asAdminAction() =
-        values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
-    }
+    fun asPath() = "$ADMIN/${name.toLowerCase()}"
   }
 
   fun adminPage(arg: Admin) =
     page {
       adminChoices()
       val ts = tradingSheet()
-      when (arg.action.asAdminAction()) {
+      when (enumValueOf(arg.action.toUpperCase()) as AdminActions) {
         USERS -> {
           homeLink()
           h3 { +"Users" }

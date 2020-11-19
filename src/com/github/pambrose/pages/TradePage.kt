@@ -32,7 +32,6 @@ import com.github.pambrose.common.util.isNull
 import com.github.pambrose.pages.TradePage.ParamNames.*
 import com.github.pambrose.pages.TradePage.TradeActions.ADD
 import com.github.pambrose.pages.TradePage.TradeActions.BALANCE
-import com.github.pambrose.pages.TradePage.TradeActions.Companion.asTradeAction
 import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
@@ -40,15 +39,10 @@ import kotlinx.html.*
 
 object TradePage {
 
-  enum class TradeActions(val action: String) {
-    ADD("add"), BALANCE("balance");
+  enum class TradeActions {
+    ADD, BALANCE;
 
-    fun asPath() = "$TRADE/$action"
-
-    companion object {
-      fun String.asTradeAction() =
-        values().firstOrNull { this == it.action } ?: throw InvalidRequestException("Invalid action: $this")
-    }
+    fun asPath() = "$TRADE/${name.toLowerCase()}"
   }
 
   enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_ITEM, BUYER_NAME, BUYER_AMOUNT, BUYER_ITEM }
@@ -61,7 +55,7 @@ object TradePage {
       else {
         val user = authorizedUser(false)
         val ts = tradingSheet()
-        when (arg.action.asTradeAction()) {
+        when (enumValueOf(arg.action.toUpperCase()) as TradeActions) {
           ADD -> {
             div {
               val params = call.request.queryParameters
