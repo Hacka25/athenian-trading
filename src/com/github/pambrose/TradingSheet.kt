@@ -79,7 +79,6 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         it.value
       }
 
-  // mmm"-"dd" "hh":"mm":"ss" "am/pm
   val formatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss", Locale.ENGLISH)
 
   private val halfTrades

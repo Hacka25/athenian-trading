@@ -114,6 +114,7 @@ object AdminPage {
           h3 { +"Transactions" }
           table {
             ts.transactions()
+              .filterNot { it.allocation }
               .forEach {
                 tr {
                   td {
