@@ -56,15 +56,13 @@ object TradePage {
       else {
         val user = authorizedUser(false)
         val username = user.username
-        val fullName = user.fullName
-        val role = user.role
         val ts = tradingSheet()
         when (enumValueOf(arg.action.toUpperCase()) as TradeActions) {
           ADD -> {
             div {
               val params = call.request.queryParameters
               val buyer =
-                HalfTrade(user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
+                HalfTrade(user,
                           UnitAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
                                      params[BUYER_UNIT.name]?.toUnit() ?: ts.units[0]))
               val seller =
@@ -84,7 +82,7 @@ object TradePage {
               .firstOrNull()
               ?.also {
                 div {
-                  +"Balance for $username ($fullName) $role"
+                  +"Balance for ${user.fullName}"
                 }
                 table {
                   style = "padding-left:2em;padding-top:10px;"
@@ -95,7 +93,7 @@ object TradePage {
 
           USER_TRANSACTIONS -> {
             div {
-              +"Transactions for $username ($fullName) $role"
+              +"Transactions for ${user.longName}"
             }
             table {
               style = "padding-left:2em;padding-top:10px;"
@@ -149,7 +147,7 @@ object TradePage {
         tradeChoices()
         when {
           buyer.user == seller.user -> {
-            h3 { style = "color:red;"; +"Error: names cannot be the same" }
+            h3 { style = "color:red;"; +"Error: buyer and seller cannot be the same person" }
             addTradeForm(ts, buyer, seller)
           }
           buyer.unitAmount.amount <= 0 || seller.unitAmount.amount <= 0 -> {

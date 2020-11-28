@@ -56,8 +56,7 @@ object AdminPage {
             ts.users.forEach {
               tr {
                 td { +it.username }
-                td { +it.fullName }
-                td { +it.role }
+                td { +it.longName }
               }
             }
           }
@@ -71,8 +70,7 @@ object AdminPage {
               ts.refreshUsers().forEach {
                 tr {
                   td { b { +it.username } }
-                  td { +it.fullName }
-                  td { +it.role }
+                  td { +it.longName }
                 }
               }
             }
@@ -99,9 +97,7 @@ object AdminPage {
               table(classes = SPACED_TABLE.name) {
                 tradeSides.forEach {
                   tr {
-                    td { b { +it.user.username } }
-                    td { +it.user.fullName }
-                    td { b { +it.user.role } }
+                    td { +it.user.longName }
                     td { +"${it.unitAmount}" }
                   }
                 }
@@ -136,25 +132,22 @@ object AdminPage {
         }
 
         BALANCES -> {
-          val recordToSheet = queryParam(RECORD_TO_SHEET, "false").toBoolean()
           homeLink()
           h3 { +"Balances" }
           ts.calculateBalances()
             .also { map ->
-              if (recordToSheet)
+              if (queryParam(RECORD_TO_SHEET, "false").toBoolean())
                 ts.writeBalancesToSpreadsheet(map)
             }
-            .onEach { row ->
+            .forEach { row ->
               val nameList = mutableListOf<String>()
               row.value.sortedWith(compareBy { it.unit.desc })
                 .forEach {
                   val username = row.key.username
-                  val fullName = row.key.fullName
-                  val role = row.key.role
                   div {
                     if (username !in nameList) {
                       style = "padding-left:1em;"
-                      b { +"$username ($fullName) $role" }
+                      b { +row.key.longName }
                     } else {
                       style = "padding-left:2em;"
                       +"$it"
