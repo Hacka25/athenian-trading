@@ -93,24 +93,24 @@ object Installs : KLogging() {
         realm = "Trading Auth"
         validate { cred ->
           val users = tradingSheet().users
-          val user = users.firstOrNull { it.name.equals(cred.name, ignoreCase = true) }
+          val user = users.firstOrNull { it.username.equals(cred.name, ignoreCase = true) }
           if (user.isNotNull() && user.password.equals(cred.password, ignoreCase = true)) {
             val str = "${cred.name}:${cred.password}"
             val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
             if (authMap.containsKey(encodedString)) {
               val (_, block) = authMap[encodedString] ?: throw InvalidRequestException("Auth problems")
               if (block) {
-                logger.info { "Denied login for ${user.name}" }
+                logger.info { "Denied login for ${user.username}" }
                 authMap[encodedString] = user to false
                 null
               } else {
-                logger.info { "Granted login for ${user.name}" }
-                UserIdPrincipal(user.name)
+                logger.info { "Granted login for ${user.username}" }
+                UserIdPrincipal(user.username)
               }
             } else {
               authMap[encodedString] = user to false
-              logger.info { "Created login for ${user.name}" }
-              UserIdPrincipal(user.name)
+              logger.info { "Created login for ${user.username}" }
+              UserIdPrincipal(user.username)
             }
           } else null
         }

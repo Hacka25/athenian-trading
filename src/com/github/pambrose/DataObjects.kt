@@ -17,30 +17,36 @@
 
 package com.github.pambrose
 
-data class User(val name: String, val password: String) {
-  override fun toString() = name
+data class User(
+  val username: String,
+  val password: String,
+  val fullName: String,
+  val role: String
+) {
+  override fun toString() = username
 
   companion object {
-    fun String.toUser() = User(this, "")
+    fun String.toUser(users: List<User>) =
+      users.firstOrNull { it.username == this } ?: throw InvalidConfigurationException("Missing user: $this")
   }
 }
 
-data class Item(val desc: String) {
+data class Units(val desc: String) {
   override fun toString() = desc
 
   companion object {
-    fun String.toItem() = Item(this)
+    fun String.toUnit() = Units(this)
   }
 }
 
-data class ItemAmount(val amount: Int, val item: Item) {
-  val desc get() = item.desc
-  override fun toString() = "$amount $item"
+data class UnitAmount(val amount: Int, val unit: Units) {
+  val desc get() = unit.desc
+  override fun toString() = "$amount $unit"
 }
 
-data class TradeSide(val user: User, val itemAmount: ItemAmount) {
-  val name get() = user.name
-  val amount get() = itemAmount.amount
-  val item get() = itemAmount.item
-  val desc get() = itemAmount.item.desc
+data class TradeSide(val user: User, val unitAmount: UnitAmount) {
+  val username get() = user.username
+  val amount get() = unitAmount.amount
+  val unit get() = unitAmount.unit
+  val desc get() = unitAmount.unit.desc
 }

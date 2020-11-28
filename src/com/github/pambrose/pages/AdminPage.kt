@@ -17,29 +17,33 @@
 
 package com.github.pambrose.pages
 
-import com.github.pambrose.ItemAmount
+import com.github.pambrose.PageUtils.RECORD_TO_SHEET
 import com.github.pambrose.PageUtils.adminChoices
 import com.github.pambrose.PageUtils.homeLink
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADMIN
+import com.github.pambrose.PipelineCall
 import com.github.pambrose.TradeSide
+import com.github.pambrose.UnitAmount
 import com.github.pambrose.pages.AdminPage.AdminActions.*
+import com.github.pambrose.pages.DIVS.SPACED_TABLE
+import com.github.pambrose.queryParam
 import io.ktor.locations.*
 import kotlinx.html.*
 
 object AdminPage {
 
   enum class AdminActions {
-    USERS, REFRESH_USERS, ITEMS,
-    REFRESH_ITEMS, ALLOCATIONS,
-    RANDOM_TRADE, CLEAR_TRADES, CALC;
+    USERS, REFRESH_USERS, UNITS,
+    REFRESH_UNITS, ALLOCATIONS,
+    RANDOM_TRADE, CLEAR_TRADES, BALANCES;
 
     fun asPath() = "$ADMIN/${name.toLowerCase()}"
   }
 
-  fun adminPage(arg: Admin) =
+  fun PipelineCall.adminPage(arg: Admin) =
     page {
       adminChoices()
       val ts = tradingSheet()
@@ -47,33 +51,53 @@ object AdminPage {
         USERS -> {
           homeLink()
           h3 { +"Users" }
-          table { ts.users.forEach { tr { td { +it.name } } } }
+          table(classes = SPACED_TABLE.name) {
+            ts.users.forEach {
+              tr {
+                td { +it.username };
+                td { +it.fullName };
+                td { +it.role }
+              }
+            }
+          }
         }
         REFRESH_USERS -> {
           homeLink()
-          h3 { +"Users Refreshed" }
-          table { ts.refreshUsers().forEach { tr { td { +it.name } } } }
+          h3 { +"Users refreshed" }
+          div(classes = SPACED_TABLE.name) {
+            table {
+              ts.refreshUsers().forEach {
+                tr {
+                  td { b { +it.username } };
+                  td { +it.fullName };
+                  td { +it.role }
+                }
+              }
+            }
+          }
         }
-        ITEMS -> {
+        UNITS -> {
           homeLink()
-          h3 { +"Goods and services" }
-          table { ts.items.forEach { tr { td { +it.desc } } } }
+          h3 { +"Units" }
+          table { ts.units.forEach { tr { td { +it.desc } } } }
         }
-        REFRESH_ITEMS -> {
+        REFRESH_UNITS -> {
           homeLink()
-          h3 { +"Goods and services Refreshed" }
-          table { ts.refreshItems().forEach { tr { td { +it.desc } } } }
+          h3 { +"Units refreshed" }
+          table { ts.refreshUnits().forEach { tr { td { +it.desc } } } }
         }
         ALLOCATIONS -> {
           homeLink()
           h3 { +"Allocations" }
           ts.allocations
-            .also { items ->
-              table {
-                items.forEach {
+            .also { tradeSides ->
+              table(classes = SPACED_TABLE.name) {
+                tradeSides.forEach {
                   tr {
-                    td { style = "padding-right:5;"; b { +it.user.name } }
-                    td { +"${it.itemAmount}" }
+                    td { b { +it.user.username } }
+                    td { +it.user.fullName }
+                    td { b { +it.user.role } }
+                    td { +"${it.unitAmount}" }
                   }
                 }
               }
@@ -82,40 +106,44 @@ object AdminPage {
         RANDOM_TRADE -> {
           h3 { +"Random trade added" }
 
-          val buyer = TradeSide(ts.users.random(), ItemAmount((1..10).random(), ts.items.random()))
+          val buyer = TradeSide(ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
           val seller = TradeSide((ts.users - buyer.user).random(),
-                                 ItemAmount((1..10).random(), (ts.items - buyer.itemAmount.item).random()))
+                                 UnitAmount((1..10).random(), (ts.units - buyer.unitAmount.unit).random()))
           ts.addTrade(buyer, seller).apply { div { +first } }
         }
         CLEAR_TRADES -> {
           h3 { +"Trades cleared" }
           ts.clearTrades().also { pre { +it.toString() } }
         }
-        CALC -> {
+        BALANCES -> {
+          val recordToSheet = queryParam(RECORD_TO_SHEET, "false")?.toBoolean()
           homeLink()
           h3 { +"Balances" }
-          ts.writeBalances()
+          ts.calculateBalances()
+            .also { map ->
+              if (recordToSheet)
+                ts.writeBalancesToSpreadsheet(map)
+            }
             .also { elems ->
-              table {
-                elems.forEach { row ->
-                  val nameList = mutableListOf<String>()
-                  row.value.sortedWith(compareBy { it.item.desc })
-                    .forEach {
-                      val name = row.key.name
-                      tr {
-                        td {
-                          style = "padding-left:10;padding-right:5;"
-                          b { +(name.takeUnless { nameList.contains(it) } ?: "") }
-                        }
-                        td { +"$it" }
+              elems.forEach { row ->
+                val nameList = mutableListOf<String>()
+                row.value.sortedWith(compareBy { it.unit.desc })
+                  .forEach {
+                    val username = row.key.username
+                    val fullName = row.key.fullName
+                    val role = row.key.role
+                    div {
+                      if (username !in nameList) {
+                        style = "padding-left:1em;"
+                        b { +"$username ($fullName) $role" }
+                      } else {
+                        style = "padding-left:2em;"
+                        +"$it"
                       }
-                      nameList += name
                     }
-                  tr {
-                    td { rawHtml(Entities.nbsp.text) }
-                    td {}
+                    nameList += username
                   }
-                }
+                div { rawHtml(Entities.nbsp.text) }
               }
             }
         }

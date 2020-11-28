@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 object ServiceCache {
 
   private val userCache = AtomicReference<List<User>>()
-  private val itemCache = AtomicReference<List<Item>>()
+  private val unitsCache = AtomicReference<List<Units>>()
 
   fun users(action: () -> List<User>): List<User> {
     if (userCache.get().isNull())
@@ -36,14 +36,14 @@ object ServiceCache {
     return userCache.get()
   }
 
-  fun items(action: () -> List<Item>): List<Item> {
-    if (itemCache.get().isNull())
-      itemCache.compareAndSet(null, action())
-    return itemCache.get()
+  fun units(action: () -> List<Units>): List<Units> {
+    if (unitsCache.get().isNull())
+      unitsCache.compareAndSet(null, action())
+    return unitsCache.get()
   }
 
-  fun refreshItems(action: () -> List<Item>): List<Item> {
-    itemCache.set(action())
-    return itemCache.get()
+  fun refreshUnits(action: () -> List<Units>): List<Units> {
+    unitsCache.set(action())
+    return unitsCache.get()
   }
 }

@@ -18,9 +18,14 @@
 package com.github.pambrose.pages
 
 import com.github.pambrose.PipelineCall
+import com.github.pambrose.pages.DIVS.SPACED_TABLE
 import com.github.pambrose.respondCss
 import io.ktor.application.*
 import kotlinx.css.*
+
+enum class DIVS {
+  SPACED_TABLE
+}
 
 object CssPage {
 
@@ -36,6 +41,9 @@ object CssPage {
       }
       rule("li") {
         paddingBottom = 15.px
+      }
+      rule(".${SPACED_TABLE.name} td") {
+        paddingRight = 15.px
       }
       // Turn links red on mouse hovers.
       rule("a:hover") {
