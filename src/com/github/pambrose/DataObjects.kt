@@ -17,12 +17,15 @@
 
 package com.github.pambrose
 
+import java.time.LocalDateTime
+
 data class User(
   val username: String,
   val password: String,
   val fullName: String,
   val role: String
 ) {
+  val longName get() = "$fullName ($role)"
   override fun toString() = username
 
   companion object {
@@ -44,10 +47,11 @@ data class UnitAmount(val amount: Int, val unit: Units) {
   override fun toString() = "$amount $unit"
 }
 
-data class HalfTrade(val date: String, val user: User, val unitAmount: UnitAmount) {
+data class HalfTrade(val user: User, val unitAmount: UnitAmount, val date: LocalDateTime = LocalDateTime.now()) {
   val username get() = user.username
   val fullName get() = user.fullName
   val role get() = user.role
+  val longName get() = user.longName
   val amount get() = unitAmount.amount
   val unit get() = unitAmount.unit
   val desc get() = unitAmount.unit.desc
@@ -55,7 +59,7 @@ data class HalfTrade(val date: String, val user: User, val unitAmount: UnitAmoun
 
 data class FullTrade(
   val allocation: Boolean,
-  val date: String,
+  val date: LocalDateTime = LocalDateTime.now(),
   val buyer: User,
   val buyerUnitAmount: UnitAmount,
   val seller: User,

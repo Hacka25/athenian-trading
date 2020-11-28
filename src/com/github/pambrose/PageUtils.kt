@@ -41,10 +41,13 @@ import kotlinx.html.stream.createHTML
 import mu.KLogging
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.time.format.DateTimeFormatter
 
-typealias PipelineCall = PipelineContext<kotlin.Unit, ApplicationCall>
+typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
 
 object PageUtils : KLogging() {
+
+  val outputFormatter = DateTimeFormatter.ofPattern("E h:mm a")
 
   const val RECORD_TO_SHEET = "recordToSheet"
 
@@ -64,7 +67,7 @@ object PageUtils : KLogging() {
       } ?: throw InvalidRequestException("Unrecognized user")
   }
 
-  fun page(addHomeLink: Boolean = true, block: BODY.() -> kotlin.Unit) =
+  fun page(addHomeLink: Boolean = true, block: BODY.() -> Unit) =
     createHTML()
       .html {
         head {
@@ -134,6 +137,7 @@ object PageUtils : KLogging() {
         a { href = REFRESH_UNITS.asPath(); +"(Refresh)" }
       }
       li { a { href = ALLOCATIONS.asPath(); +"Allocations" } }
+      li { a { href = TRANSACTIONS.asPath(); +"Transactions" } }
       //li { a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
       li {
         a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=false"; +"Balances" }
@@ -147,7 +151,7 @@ object PageUtils : KLogging() {
     ul {
       li { a { href = LOGOUT; +"Logout" } }
       li { a { href = BALANCE.asPath(); +"Balance" } }
-      li { a { href = TRANSACTIONS.asPath(); +"Transactions" } }
+      li { a { href = USER_TRANSACTIONS.asPath(); +"Transactions" } }
       li { a { href = ADD.asPath(); +"Add a trade" } }
     }
   }
@@ -155,17 +159,17 @@ object PageUtils : KLogging() {
   fun getResourceAsText(path: String) = PageUtils::class.java.getResource(path).readText()
 }
 
-suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> kotlin.Unit) {
+suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
   this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
 }
 
-fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> kotlin.Unit) {
+fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
   style(type = ContentType.Text.CSS.toString()) {
     +CSSBuilder().apply(builder).toString()
   }
 }
 
-fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> kotlin.Unit) {
+fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
   this.style = CSSBuilder().apply(builder).toString().trim()
 }
 

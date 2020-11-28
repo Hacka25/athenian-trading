@@ -29,6 +29,9 @@ import com.github.pambrose.Units.Companion.toUnit
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
 import mu.KLogging
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.*
 import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
@@ -68,8 +71,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
     get() =
       measureTimedValue {
         service.query(ssId, AllocationsRange.name) {
-          HalfTrade("Allocation",
-                    (this[0] as String).toUser(users),
+          HalfTrade((this[0] as String).toUser(users),
                     UnitAmount((this[1] as String).toInt(), (this[2] as String).toUnit()))
         }
       }.let {
@@ -77,12 +79,15 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         it.value
       }
 
+  // mmm"-"dd" "hh":"mm":"ss" "am/pm
+  val formatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss", Locale.ENGLISH)
+
   private val halfTrades
     get() =
       measureTimedValue {
         service.query(ssId, TradesRange.name) {
           if (size == 7) {
-            val date = this[0] as String
+            val date = LocalDateTime.parse(this[0] as String, formatter)
             val buyer = (this[1] as String).toUser(users)
             val buyerAmount = (this[2] as String).toInt()
             val buyerUnit = (this[3] as String).toUnit()
@@ -90,10 +95,10 @@ class TradingSheet(private val ssId: String, credential: Credential) {
             val sellerAmount = (this[5] as String).toInt()
             val sellerUnit = (this[6] as String).toUnit()
             listOf(
-              HalfTrade(date, buyer, UnitAmount(-1 * buyerAmount, buyerUnit)),
-              HalfTrade(date, seller, UnitAmount(buyerAmount, buyerUnit)),
-              HalfTrade(date, buyer, UnitAmount(sellerAmount, sellerUnit)),
-              HalfTrade(date, seller, UnitAmount(-1 * sellerAmount, sellerUnit))
+              HalfTrade(buyer, UnitAmount(-1 * buyerAmount, buyerUnit), date),
+              HalfTrade(seller, UnitAmount(buyerAmount, buyerUnit), date),
+              HalfTrade(buyer, UnitAmount(sellerAmount, sellerUnit), date),
+              HalfTrade(seller, UnitAmount(-1 * sellerAmount, sellerUnit), date)
             )
           } else {
             logger.error { "Missing trade data" }
@@ -110,7 +115,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       measureTimedValue {
         service.query(ssId, TradesRange.name) {
           if (size == 7) {
-            val date = this[0] as String
+            val date = LocalDateTime.parse(this[0] as String, formatter)
             val buyer = (this[1] as String).toUser(users)
             val buyerAmount = (this[2] as String).toInt()
             val buyerUnit = (this[3] as String).toUnit()
@@ -149,7 +154,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
                                    buyer.username, buyer.amount, buyer.desc,
                                    seller.username, seller.amount, seller.desc)))
         .let { response ->
-          "${buyer.fullName} (${buyer.role}) traded ${buyer.unitAmount} to ${seller.fullName} (${seller.role}) for ${seller.unitAmount}" to response
+          "${buyer.longName} traded ${buyer.unitAmount} for ${seller.unitAmount} with ${seller.longName}" to response
         }
     }.let {
       logger.info { "Added a trade: ${it.duration}" }
@@ -160,7 +165,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
     measureTimedValue {
       (allocations + halfTrades)
         .groupBy({ it.user to it.unit }, { it.amount })
-        .map { HalfTrade("", it.key.first, UnitAmount(it.value.sum(), it.key.second)) }
+        .map { HalfTrade(it.key.first, UnitAmount(it.value.sum(), it.key.second)) }
         .filter { it.amount != 0 }
         .groupBy({ it.user }, { UnitAmount(it.amount, it.unit) })
         .toSortedMap(compareBy { it.username })
@@ -173,7 +178,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
   fun transactions() =
     measureTimedValue {
       (allocations.map { FullTrade(true, it.date, it.user, it.unitAmount, it.user, it.unitAmount) } + fullTrades)
-        .sortedWith(compareBy({ !it.allocation }, { it.date }))
+        .sortedWith(compareBy({ !it.allocation }, { it.date }, { it.buyer.username }))
     }.let {
       logger.info { "Transactions: ${it.duration}" }
       it.value

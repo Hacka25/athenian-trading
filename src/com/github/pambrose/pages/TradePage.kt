@@ -19,6 +19,7 @@ package com.github.pambrose.pages
 
 import com.github.pambrose.*
 import com.github.pambrose.PageUtils.authorizedUser
+import com.github.pambrose.PageUtils.outputFormatter
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradeChoices
@@ -36,10 +37,11 @@ import io.ktor.locations.*
 import io.ktor.request.*
 import kotlinx.html.*
 
+
 object TradePage {
 
   enum class TradeActions {
-    ADD, BALANCE, TRANSACTIONS;
+    ADD, BALANCE, USER_TRANSACTIONS;
 
     fun asPath() = "$TRADE/${name.toLowerCase()}"
   }
@@ -62,11 +64,11 @@ object TradePage {
             div {
               val params = call.request.queryParameters
               val buyer =
-                HalfTrade("", user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
+                HalfTrade(user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
                           UnitAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
                                      params[BUYER_UNIT.name]?.toUnit() ?: ts.units[0]))
               val seller =
-                HalfTrade("", params[SELLER_NAME.name]?.toUser(ts.users) ?: (ts.users - user)[0],
+                HalfTrade(params[SELLER_NAME.name]?.toUser(ts.users) ?: (ts.users - user)[0],
                           UnitAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
                                      params[SELLER_UNIT.name]?.toUnit() ?: ts.units[0]))
 
@@ -82,36 +84,38 @@ object TradePage {
               .firstOrNull()
               ?.also {
                 div {
-                  style = "padding-left:1em;"
                   +"Balance for $username ($fullName) $role"
                 }
                 table {
-                  style = "padding-left:3em;padding-top:10px;"
+                  style = "padding-left:2em;padding-top:10px;"
                   it.sortedWith(compareBy { it.unit.desc }).forEach { tr { td { +"$it" } } }
                 }
               } ?: throw InvalidRequestException("Missing name: $username")
           }
 
-          TRANSACTIONS -> {
+          USER_TRANSACTIONS -> {
             div {
-              style = "padding-left:1em;"
               +"Transactions for $username ($fullName) $role"
             }
             table {
-              style = "padding-left:3em;padding-top:10px;"
+              style = "padding-left:2em;padding-top:10px;"
+
               ts.transactions()
                 .filter { it.buyer.username == username || it.seller.username == username }
                 .forEach {
                   tr {
                     td {
                       style = "padding-right:1em;"
-                      +it.date
+                      if (it.allocation)
+                        +"Allocation"
+                      else
+                        +it.date.format(outputFormatter)
                     }
                     td {
                       if (it.allocation)
                         +"${it.buyer.fullName} ${it.buyerUnitAmount}"
                       else
-                        +"${it.buyer.fullName} (${it.buyer.role}) traded ${it.buyerUnitAmount} to ${it.seller.fullName} (${it.seller.role}) for ${it.sellerUnitAmount}"
+                        +"${it.buyer.longName} traded ${it.buyerUnitAmount} for ${it.sellerUnitAmount} with ${it.seller.longName}"
                     }
                   }
                 }
@@ -125,16 +129,16 @@ object TradePage {
     val params = call.receiveParameters()
     val ts = tradingSheet()
     val buyer =
-      HalfTrade("", ts.users.firstOrNull { it.username == params[BUYER_NAME.name] }
-        ?: throw InvalidRequestException("Buyer user"),
+      HalfTrade(ts.users.firstOrNull { it.username == params[BUYER_NAME.name] }
+                  ?: throw InvalidRequestException("Buyer user"),
                 UnitAmount(params[BUYER_AMOUNT.name]?.toInt()
                              ?: throw InvalidRequestException("Buyer amount"),
                            ts.units.firstOrNull { it.desc == params[BUYER_UNIT.name] }
                              ?: throw InvalidRequestException(
                                "Buyer unit")))
     val seller =
-      HalfTrade("", ts.users.firstOrNull { it.username == params[SELLER_NAME.name] }
-        ?: throw InvalidRequestException("Seller user"),
+      HalfTrade(ts.users.firstOrNull { it.username == params[SELLER_NAME.name] }
+                  ?: throw InvalidRequestException("Seller user"),
                 UnitAmount(params[SELLER_AMOUNT.name]?.toInt()
                              ?: throw InvalidRequestException("Seller amount"),
                            ts.units.firstOrNull { it.desc == params[SELLER_UNIT.name] }
@@ -180,7 +184,7 @@ object TradePage {
               buyer.username.also {
                 option {
                   value = it
-                  +it.toUser(ts.users).let { user -> "${user.fullName} (${user.role})" }
+                  +it.toUser(ts.users).longName
                 }
               }
             }
@@ -213,7 +217,7 @@ object TradePage {
                   option {
                     value = username
                     selected = (username == seller.username)
-                    +username.toUser(ts.users).let { user -> "${user.fullName} (${user.role})" }
+                    +username.toUser(ts.users).longName
                   }
                 }
             }

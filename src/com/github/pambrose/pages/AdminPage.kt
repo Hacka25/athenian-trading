@@ -21,6 +21,7 @@ import com.github.pambrose.HalfTrade
 import com.github.pambrose.PageUtils.RECORD_TO_SHEET
 import com.github.pambrose.PageUtils.adminChoices
 import com.github.pambrose.PageUtils.homeLink
+import com.github.pambrose.PageUtils.outputFormatter
 import com.github.pambrose.PageUtils.page
 import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradingSheet
@@ -37,7 +38,7 @@ object AdminPage {
 
   enum class AdminActions {
     USERS, REFRESH_USERS, UNITS,
-    REFRESH_UNITS, ALLOCATIONS,
+    REFRESH_UNITS, ALLOCATIONS, TRANSACTIONS,
     RANDOM_TRADE, CLEAR_TRADES, BALANCES;
 
     fun asPath() = "$ADMIN/${name.toLowerCase()}"
@@ -54,13 +55,14 @@ object AdminPage {
           table(classes = SPACED_TABLE.name) {
             ts.users.forEach {
               tr {
-                td { +it.username };
-                td { +it.fullName };
+                td { +it.username }
+                td { +it.fullName }
                 td { +it.role }
               }
             }
           }
         }
+
         REFRESH_USERS -> {
           homeLink()
           h3 { +"Users refreshed" }
@@ -68,24 +70,27 @@ object AdminPage {
             table {
               ts.refreshUsers().forEach {
                 tr {
-                  td { b { +it.username } };
-                  td { +it.fullName };
+                  td { b { +it.username } }
+                  td { +it.fullName }
                   td { +it.role }
                 }
               }
             }
           }
         }
+
         UNITS -> {
           homeLink()
           h3 { +"Units" }
           table { ts.units.forEach { tr { td { +it.desc } } } }
         }
+
         REFRESH_UNITS -> {
           homeLink()
           h3 { +"Units refreshed" }
           table { ts.refreshUnits().forEach { tr { td { +it.desc } } } }
         }
+
         ALLOCATIONS -> {
           homeLink()
           h3 { +"Allocations" }
@@ -103,18 +108,32 @@ object AdminPage {
               }
             }
         }
-        RANDOM_TRADE -> {
-          h3 { +"Random trade added" }
 
-          val buyer = HalfTrade("", ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
-          val seller = HalfTrade("", (ts.users - buyer.user).random(),
-                                 UnitAmount((1..10).random(), (ts.units - buyer.unitAmount.unit).random()))
-          ts.addTrade(buyer, seller).apply { div { +first } }
+        TRANSACTIONS -> {
+          homeLink()
+          h3 { +"Transactions" }
+          table {
+            ts.transactions()
+              .forEach {
+                tr {
+                  td {
+                    style = "padding-right:1em;"
+                    if (it.allocation)
+                      +"Allocation"
+                    else
+                      +it.date.format(outputFormatter)
+                  }
+                  td {
+                    if (it.allocation)
+                      +"${it.buyer.fullName} ${it.buyerUnitAmount}"
+                    else
+                      +"${it.buyer.longName} traded ${it.buyerUnitAmount} for ${it.sellerUnitAmount} with ${it.seller.longName}"
+                  }
+                }
+              }
+          }
         }
-        CLEAR_TRADES -> {
-          h3 { +"Trades cleared" }
-          ts.clearTrades().also { pre { +it.toString() } }
-        }
+
         BALANCES -> {
           val recordToSheet = queryParam(RECORD_TO_SHEET, "false").toBoolean()
           homeLink()
@@ -124,28 +143,40 @@ object AdminPage {
               if (recordToSheet)
                 ts.writeBalancesToSpreadsheet(map)
             }
-            .also { elems ->
-              elems.forEach { row ->
-                val nameList = mutableListOf<String>()
-                row.value.sortedWith(compareBy { it.unit.desc })
-                  .forEach {
-                    val username = row.key.username
-                    val fullName = row.key.fullName
-                    val role = row.key.role
-                    div {
-                      if (username !in nameList) {
-                        style = "padding-left:1em;"
-                        b { +"$username ($fullName) $role" }
-                      } else {
-                        style = "padding-left:2em;"
-                        +"$it"
-                      }
+            .onEach { row ->
+              val nameList = mutableListOf<String>()
+              row.value.sortedWith(compareBy { it.unit.desc })
+                .forEach {
+                  val username = row.key.username
+                  val fullName = row.key.fullName
+                  val role = row.key.role
+                  div {
+                    if (username !in nameList) {
+                      style = "padding-left:1em;"
+                      b { +"$username ($fullName) $role" }
+                    } else {
+                      style = "padding-left:2em;"
+                      +"$it"
                     }
-                    nameList += username
                   }
-                div { rawHtml(Entities.nbsp.text) }
-              }
+                  nameList += username
+                }
+              div { rawHtml(Entities.nbsp.text) }
             }
+        }
+
+        RANDOM_TRADE -> {
+          h3 { +"Random trade added" }
+
+          val buyer = HalfTrade(ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
+          val seller = HalfTrade((ts.users - buyer.user).random(),
+                                 UnitAmount((1..10).random(), (ts.units - buyer.unitAmount.unit).random()))
+          ts.addTrade(buyer, seller).apply { div { +first } }
+        }
+
+        CLEAR_TRADES -> {
+          h3 { +"Trades cleared" }
+          ts.clearTrades().also { pre { +it.toString() } }
         }
       }
     }
