@@ -82,7 +82,7 @@ object TradePage {
               .firstOrNull()
               ?.also {
                 div {
-                  +"Balance for ${user.fullName}"
+                  +"Balance for ${user.longName}"
                 }
                 table {
                   style = "padding-left:2em;padding-top:10px;"
@@ -142,6 +142,10 @@ object TradePage {
                            ts.units.firstOrNull { it.desc == params[SELLER_UNIT.name] }
                              ?: throw InvalidRequestException("Seller unit")))
 
+    val balances = ts.calculateBalances()
+    val buyerUnitAmount = balances[buyer.user]?.firstOrNull { it.unit == buyer.unit }
+    val sellerUnitAmount = balances[seller.user]?.firstOrNull { it.unit == seller.unit }
+
     respondWith {
       page {
         tradeChoices()
@@ -156,6 +160,14 @@ object TradePage {
           }
           buyer.unitAmount.unit == seller.unitAmount.unit -> {
             h3 { style = "color:red;"; +"Error: units cannot be the same" }
+            addTradeForm(ts, buyer, seller)
+          }
+          buyerUnitAmount.isNull() || buyerUnitAmount.amount < buyer.amount -> {
+            h3 { style = "color:red;"; +"Error: ${buyer.longName} does not have ${buyer.unitAmount}" }
+            addTradeForm(ts, buyer, seller)
+          }
+          sellerUnitAmount.isNull() || sellerUnitAmount.amount < seller.amount -> {
+            h3 { style = "color:red;"; +"Error: ${seller.longName} does not have ${seller.unitAmount}" }
             addTradeForm(ts, buyer, seller)
           }
           else -> {

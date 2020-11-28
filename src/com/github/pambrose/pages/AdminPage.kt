@@ -141,17 +141,19 @@ object AdminPage {
             }
             .forEach { row ->
               val nameList = mutableListOf<String>()
-              row.value.sortedWith(compareBy { it.unit.desc })
+              row.value
+                .sortedWith(compareBy { it.unit.desc })
                 .forEach {
                   val username = row.key.username
                   div {
                     if (username !in nameList) {
-                      style = "padding-left:1em;"
+                      style = "padding-left:1em;padding-bottom:10px"
                       b { +row.key.longName }
-                    } else {
-                      style = "padding-left:2em;"
-                      +"$it"
                     }
+                  }
+                  div {
+                    style = "padding-left:2em;"
+                    +"$it"
                   }
                   nameList += username
                 }
@@ -161,7 +163,6 @@ object AdminPage {
 
         RANDOM_TRADE -> {
           h3 { +"Random trade added" }
-
           val buyer = HalfTrade(ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
           val seller = HalfTrade((ts.users - buyer.user).random(),
                                  UnitAmount((1..10).random(), (ts.units - buyer.unitAmount.unit).random()))

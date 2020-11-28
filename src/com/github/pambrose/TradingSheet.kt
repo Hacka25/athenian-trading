@@ -52,7 +52,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       }
     }.let {
       logger.info { "Fetched users: ${it.duration}" }
-      it.value
+      it.value.sortedWith(compareBy { it.fullName })
     }
 
   val units get() = ServiceCache.units { fetchUnits() }
@@ -64,15 +64,18 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       service.query(ssId, UnitsRange.name) { (this[0] as String).toUnit() }
     }.let {
       logger.info { "Fetched units: ${it.duration}" }
-      it.value
+      it.value.sortedWith(compareBy { it.desc })
     }
 
   val allocations
     get() =
       measureTimedValue {
         service.query(ssId, AllocationsRange.name) {
-          HalfTrade((this[0] as String).toUser(users),
-                    UnitAmount((this[1] as String).toInt(), (this[2] as String).toUnit()))
+          if (size == 3)
+            HalfTrade((this[0] as String).toUser(users),
+                      UnitAmount((this[1] as String).toInt(), (this[2] as String).toUnit()))
+          else
+            throw InvalidConfigurationException("Missing data in Allocations")
         }
       }.let {
         logger.info { "Fetched Allocations: ${it.duration}" }
@@ -167,7 +170,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         .map { HalfTrade(it.key.first, UnitAmount(it.value.sum(), it.key.second)) }
         .filter { it.amount != 0 }
         .groupBy({ it.user }, { UnitAmount(it.amount, it.unit) })
-        .toSortedMap(compareBy { it.username })
+        .toSortedMap(compareBy { it.fullName })
     }.let {
       logger.info { "Balances: ${it.duration}" }
       it.value

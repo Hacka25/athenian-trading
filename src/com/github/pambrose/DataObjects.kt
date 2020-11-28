@@ -26,6 +26,7 @@ data class User(
   val role: String
 ) {
   val longName get() = "$fullName ($role)"
+
   override fun toString() = username
 
   companion object {
