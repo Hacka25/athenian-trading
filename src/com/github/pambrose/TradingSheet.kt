@@ -29,6 +29,7 @@ import com.github.pambrose.Units.Companion.toUnit
 import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
 import mu.KLogging
+import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
 class TradingSheet(private val ssId: String, credential: Credential) {
@@ -67,7 +68,8 @@ class TradingSheet(private val ssId: String, credential: Credential) {
     get() =
       measureTimedValue {
         service.query(ssId, AllocationsRange.name) {
-          TradeSide((this[0] as String).toUser(users),
+          HalfTrade("Allocation",
+                    (this[0] as String).toUser(users),
                     UnitAmount((this[1] as String).toInt(), (this[2] as String).toUnit()))
         }
       }.let {
@@ -75,11 +77,12 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         it.value
       }
 
-  private val trades
+  private val halfTrades
     get() =
       measureTimedValue {
         service.query(ssId, TradesRange.name) {
           if (size == 7) {
+            val date = this[0] as String
             val buyer = (this[1] as String).toUser(users)
             val buyerAmount = (this[2] as String).toInt()
             val buyerUnit = (this[3] as String).toUnit()
@@ -87,10 +90,10 @@ class TradingSheet(private val ssId: String, credential: Credential) {
             val sellerAmount = (this[5] as String).toInt()
             val sellerUnit = (this[6] as String).toUnit()
             listOf(
-              TradeSide(buyer, UnitAmount(-1 * buyerAmount, buyerUnit)),
-              TradeSide(seller, UnitAmount(buyerAmount, buyerUnit)),
-              TradeSide(buyer, UnitAmount(sellerAmount, sellerUnit)),
-              TradeSide(seller, UnitAmount(-1 * sellerAmount, sellerUnit))
+              HalfTrade(date, buyer, UnitAmount(-1 * buyerAmount, buyerUnit)),
+              HalfTrade(date, seller, UnitAmount(buyerAmount, buyerUnit)),
+              HalfTrade(date, buyer, UnitAmount(sellerAmount, sellerUnit)),
+              HalfTrade(date, seller, UnitAmount(-1 * sellerAmount, sellerUnit))
             )
           } else {
             logger.error { "Missing trade data" }
@@ -102,6 +105,34 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         it.value
       }
 
+  private val fullTrades
+    get() =
+      measureTimedValue {
+        service.query(ssId, TradesRange.name) {
+          if (size == 7) {
+            val date = this[0] as String
+            val buyer = (this[1] as String).toUser(users)
+            val buyerAmount = (this[2] as String).toInt()
+            val buyerUnit = (this[3] as String).toUnit()
+            val seller = (this[4] as String).toUser(users)
+            val sellerAmount = (this[5] as String).toInt()
+            val sellerUnit = (this[6] as String).toUnit()
+            FullTrade(false,
+                      date,
+                      buyer,
+                      UnitAmount(buyerAmount, buyerUnit),
+                      seller,
+                      UnitAmount(sellerAmount, sellerUnit))
+          } else {
+            logger.error { "Missing trade data" }
+            null
+          }
+        }
+      }.let {
+        logger.info { "Fetched Trades: ${it.duration}" }
+        it.value.filterNotNull()
+      }
+
   fun clearTrades() =
     measureTimedValue {
       service.clear(ssId, TradesRange.name)
@@ -110,7 +141,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       it.value
     }
 
-  fun addTrade(buyer: TradeSide, seller: TradeSide) =
+  fun addTrade(buyer: HalfTrade, seller: HalfTrade) =
     measureTimedValue {
       service.append(ssId,
                      TradesRange.name,
@@ -118,7 +149,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
                                    buyer.username, buyer.amount, buyer.desc,
                                    seller.username, seller.amount, seller.desc)))
         .let { response ->
-          "${buyer.user} traded ${buyer.unitAmount} for ${seller.unitAmount} with ${seller.user}" to response
+          "${buyer.fullName} (${buyer.role}) traded ${buyer.unitAmount} to ${seller.fullName} (${seller.role}) for ${seller.unitAmount}" to response
         }
     }.let {
       logger.info { "Added a trade: ${it.duration}" }
@@ -127,9 +158,9 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   fun calculateBalances() =
     measureTimedValue {
-      (allocations + trades)
+      (allocations + halfTrades)
         .groupBy({ it.user to it.unit }, { it.amount })
-        .map { TradeSide(it.key.first, UnitAmount(it.value.sum(), it.key.second)) }
+        .map { HalfTrade("", it.key.first, UnitAmount(it.value.sum(), it.key.second)) }
         .filter { it.amount != 0 }
         .groupBy({ it.user }, { UnitAmount(it.amount, it.unit) })
         .toSortedMap(compareBy { it.username })
@@ -138,7 +169,18 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       it.value
     }
 
+
+  fun transactions() =
+    measureTimedValue {
+      (allocations.map { FullTrade(true, it.date, it.user, it.unitAmount, it.user, it.unitAmount) } + fullTrades)
+        .sortedWith(compareBy({ !it.allocation }, { it.date }))
+    }.let {
+      logger.info { "Transactions: ${it.duration}" }
+      it.value
+    }
+
   fun writeBalancesToSpreadsheet(map: Map<User, List<UnitAmount>>) {
+
     val inserts = mutableListOf<List<Any>>()
     val names = mutableListOf<String>()
 
@@ -152,12 +194,16 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         }
     }
 
-    service
-      .apply {
-        val range = BalancesRange.name
-        clear(ssId, range)
-        append(ssId, range, inserts, insertDataOption = OVERWRITE)
-      }
+    measureTime {
+      service
+        .apply {
+          val range = BalancesRange.name
+          clear(ssId, range)
+          append(ssId, range, inserts, insertDataOption = OVERWRITE)
+        }
+    }.also {
+      logger.info { "Write balances to spreadsheet: $it" }
+    }
   }
 
   companion object : KLogging()

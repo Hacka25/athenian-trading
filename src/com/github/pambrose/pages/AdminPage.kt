@@ -17,6 +17,7 @@
 
 package com.github.pambrose.pages
 
+import com.github.pambrose.HalfTrade
 import com.github.pambrose.PageUtils.RECORD_TO_SHEET
 import com.github.pambrose.PageUtils.adminChoices
 import com.github.pambrose.PageUtils.homeLink
@@ -25,7 +26,6 @@ import com.github.pambrose.PageUtils.rawHtml
 import com.github.pambrose.PageUtils.tradingSheet
 import com.github.pambrose.Paths.ADMIN
 import com.github.pambrose.PipelineCall
-import com.github.pambrose.TradeSide
 import com.github.pambrose.UnitAmount
 import com.github.pambrose.pages.AdminPage.AdminActions.*
 import com.github.pambrose.pages.DIVS.SPACED_TABLE
@@ -106,8 +106,8 @@ object AdminPage {
         RANDOM_TRADE -> {
           h3 { +"Random trade added" }
 
-          val buyer = TradeSide(ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
-          val seller = TradeSide((ts.users - buyer.user).random(),
+          val buyer = HalfTrade("", ts.users.random(), UnitAmount((1..10).random(), ts.units.random()))
+          val seller = HalfTrade("", (ts.users - buyer.user).random(),
                                  UnitAmount((1..10).random(), (ts.units - buyer.unitAmount.unit).random()))
           ts.addTrade(buyer, seller).apply { div { +first } }
         }
@@ -116,7 +116,7 @@ object AdminPage {
           ts.clearTrades().also { pre { +it.toString() } }
         }
         BALANCES -> {
-          val recordToSheet = queryParam(RECORD_TO_SHEET, "false")?.toBoolean()
+          val recordToSheet = queryParam(RECORD_TO_SHEET, "false").toBoolean()
           homeLink()
           h3 { +"Balances" }
           ts.calculateBalances()

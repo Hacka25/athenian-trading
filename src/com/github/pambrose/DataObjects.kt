@@ -44,9 +44,20 @@ data class UnitAmount(val amount: Int, val unit: Units) {
   override fun toString() = "$amount $unit"
 }
 
-data class TradeSide(val user: User, val unitAmount: UnitAmount) {
+data class HalfTrade(val date: String, val user: User, val unitAmount: UnitAmount) {
   val username get() = user.username
+  val fullName get() = user.fullName
+  val role get() = user.role
   val amount get() = unitAmount.amount
   val unit get() = unitAmount.unit
   val desc get() = unitAmount.unit.desc
 }
+
+data class FullTrade(
+  val allocation: Boolean,
+  val date: String,
+  val buyer: User,
+  val buyerUnitAmount: UnitAmount,
+  val seller: User,
+  val sellerUnitAmount: UnitAmount
+)

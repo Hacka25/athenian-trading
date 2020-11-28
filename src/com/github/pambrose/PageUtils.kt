@@ -29,8 +29,7 @@ import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.spreadsheetId
 import com.github.pambrose.common.util.pathOf
 import com.github.pambrose.pages.AdminPage.AdminActions.*
-import com.github.pambrose.pages.TradePage.TradeActions.ADD
-import com.github.pambrose.pages.TradePage.TradeActions.BALANCE
+import com.github.pambrose.pages.TradePage.TradeActions.*
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -137,7 +136,7 @@ object PageUtils : KLogging() {
       li { a { href = ALLOCATIONS.asPath(); +"Allocations" } }
       //li { a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
       li {
-        a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=false"; +"Calculate balances" }
+        a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=false"; +"Balances" }
         rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
         a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=true"; +"(Record to Spreadsheet)" }
       }
@@ -148,6 +147,7 @@ object PageUtils : KLogging() {
     ul {
       li { a { href = LOGOUT; +"Logout" } }
       li { a { href = BALANCE.asPath(); +"Balance" } }
+      li { a { href = TRANSACTIONS.asPath(); +"Transactions" } }
       li { a { href = ADD.asPath(); +"Add a trade" } }
     }
   }

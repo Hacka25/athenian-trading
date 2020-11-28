@@ -30,8 +30,7 @@ import com.github.pambrose.User.Companion.toUser
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
 import com.github.pambrose.pages.TradePage.ParamNames.*
-import com.github.pambrose.pages.TradePage.TradeActions.ADD
-import com.github.pambrose.pages.TradePage.TradeActions.BALANCE
+import com.github.pambrose.pages.TradePage.TradeActions.*
 import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
@@ -40,7 +39,7 @@ import kotlinx.html.*
 object TradePage {
 
   enum class TradeActions {
-    ADD, BALANCE;
+    ADD, BALANCE, TRANSACTIONS;
 
     fun asPath() = "$TRADE/${name.toLowerCase()}"
   }
@@ -54,17 +53,20 @@ object TradePage {
         h3 { style = "color:red;"; +"Please ask your teacher to authorize the app" }
       else {
         val user = authorizedUser(false)
+        val username = user.username
+        val fullName = user.fullName
+        val role = user.role
         val ts = tradingSheet()
         when (enumValueOf(arg.action.toUpperCase()) as TradeActions) {
           ADD -> {
             div {
               val params = call.request.queryParameters
               val buyer =
-                TradeSide(user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
+                HalfTrade("", user /*params[BUYER_NAME.name]?.toUser() ?: ts.users[0]*/,
                           UnitAmount(params[BUYER_AMOUNT.name]?.toInt() ?: 0,
                                      params[BUYER_UNIT.name]?.toUnit() ?: ts.units[0]))
               val seller =
-                TradeSide(params[SELLER_NAME.name]?.toUser(ts.users) ?: (ts.users - user)[0],
+                HalfTrade("", params[SELLER_NAME.name]?.toUser(ts.users) ?: (ts.users - user)[0],
                           UnitAmount(params[SELLER_AMOUNT.name]?.toInt() ?: 0,
                                      params[SELLER_UNIT.name]?.toUnit() ?: ts.units[0]))
 
@@ -72,23 +74,48 @@ object TradePage {
               this@page.addTradeForm(ts, buyer, seller)
             }
           }
+
           BALANCE -> {
-            val username = user.username
             ts.calculateBalances()
               .filter { it.key.username == username }
-              .map { it.key.username to it.value }
+              .map { it.value }
               .firstOrNull()
-              ?.second
               ?.also {
                 div {
-                  style = "padding-left:20;"
-                  +"Balance for $username"
-                  table {
-                    style = "padding-left:20; padding-top:10;"
-                    it.sortedWith(compareBy { it.unit.desc }).forEach { tr { td { +"$it" } } }
+                  style = "padding-left:1em;"
+                  +"Balance for $username ($fullName) $role"
+                }
+                table {
+                  style = "padding-left:3em;padding-top:10px;"
+                  it.sortedWith(compareBy { it.unit.desc }).forEach { tr { td { +"$it" } } }
+                }
+              } ?: throw InvalidRequestException("Missing name: $username")
+          }
+
+          TRANSACTIONS -> {
+            div {
+              style = "padding-left:1em;"
+              +"Transactions for $username ($fullName) $role"
+            }
+            table {
+              style = "padding-left:3em;padding-top:10px;"
+              ts.transactions()
+                .filter { it.buyer.username == username || it.seller.username == username }
+                .forEach {
+                  tr {
+                    td {
+                      style = "padding-right:1em;"
+                      +it.date
+                    }
+                    td {
+                      if (it.allocation)
+                        +"${it.buyer.fullName} ${it.buyerUnitAmount}"
+                      else
+                        +"${it.buyer.fullName} (${it.buyer.role}) traded ${it.buyerUnitAmount} to ${it.seller.fullName} (${it.seller.role}) for ${it.sellerUnitAmount}"
+                    }
                   }
                 }
-              } ?: throw InvalidRequestException("Missing name $username")
+            }
           }
         }
       }
@@ -98,16 +125,16 @@ object TradePage {
     val params = call.receiveParameters()
     val ts = tradingSheet()
     val buyer =
-      TradeSide(ts.users.firstOrNull { it.username == params[BUYER_NAME.name] }
-                  ?: throw InvalidRequestException("Buyer user"),
+      HalfTrade("", ts.users.firstOrNull { it.username == params[BUYER_NAME.name] }
+        ?: throw InvalidRequestException("Buyer user"),
                 UnitAmount(params[BUYER_AMOUNT.name]?.toInt()
                              ?: throw InvalidRequestException("Buyer amount"),
                            ts.units.firstOrNull { it.desc == params[BUYER_UNIT.name] }
                              ?: throw InvalidRequestException(
                                "Buyer unit")))
     val seller =
-      TradeSide(ts.users.firstOrNull { it.username == params[SELLER_NAME.name] }
-                  ?: throw InvalidRequestException("Seller user"),
+      HalfTrade("", ts.users.firstOrNull { it.username == params[SELLER_NAME.name] }
+        ?: throw InvalidRequestException("Seller user"),
                 UnitAmount(params[SELLER_AMOUNT.name]?.toInt()
                              ?: throw InvalidRequestException("Seller amount"),
                            ts.units.firstOrNull { it.desc == params[SELLER_UNIT.name] }
@@ -138,7 +165,7 @@ object TradePage {
     }
   }
 
-  fun BODY.addTradeForm(ts: TradingSheet, buyer: TradeSide, seller: TradeSide) {
+  fun BODY.addTradeForm(ts: TradingSheet, buyer: HalfTrade, seller: HalfTrade) {
     val width = 50
     form {
       action = "$TRADE/$ADD"
@@ -150,7 +177,12 @@ object TradePage {
           td {
             select {
               name = BUYER_NAME.name
-              buyer.username.also { option { value = it; +it } }
+              buyer.username.also {
+                option {
+                  value = it
+                  +it.toUser(ts.users).let { user -> "${user.fullName} (${user.role})" }
+                }
+              }
             }
           }
           td {
@@ -177,7 +209,13 @@ object TradePage {
             select {
               name = SELLER_NAME.name
               (ts.users - buyer.user).map { it.username }
-                .forEach { option { value = it; selected = (it == seller.username); +it } }
+                .forEach { username ->
+                  option {
+                    value = username
+                    selected = (username == seller.username)
+                    +username.toUser(ts.users).let { user -> "${user.fullName} (${user.role})" }
+                  }
+                }
             }
           }
           td {
