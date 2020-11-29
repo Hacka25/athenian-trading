@@ -100,7 +100,8 @@ object AdminPage {
                 tradeSides.forEach {
                   tr {
                     td { +it.user.longName }
-                    td { +"${it.unitAmount}" }
+                    td { style = "padding-right:5px;text-align:right;"; +it.amount.toString() }
+                    td { +it.unit.toString() }
                   }
                 }
               }
