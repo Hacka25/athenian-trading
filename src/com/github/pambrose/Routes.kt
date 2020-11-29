@@ -54,14 +54,11 @@ import com.github.pambrose.pages.TradePage.addTradePage
 import com.github.pambrose.pages.TradePage.executeTrade
 import io.ktor.application.*
 import io.ktor.auth.*
-import io.ktor.http.*
 import io.ktor.http.ContentType.Text.Plain
 import io.ktor.http.content.*
 import io.ktor.locations.*
-import io.ktor.request.*
 import io.ktor.routing.*
-import kotlinx.css.*
-import kotlinx.html.*
+import kotlinx.html.div
 import mu.KLogging
 
 object Routes : KLogging() {

@@ -23,6 +23,7 @@ import com.github.pambrose.GoogleApiUtils.nowDateTime
 import com.github.pambrose.GoogleApiUtils.query
 import com.github.pambrose.GoogleApiUtils.sheetsService
 import com.github.pambrose.InsertDataOption.OVERWRITE
+import com.github.pambrose.PageUtils.inputFormatter
 import com.github.pambrose.TradingServer.APP_TITLE
 import com.github.pambrose.TradingSheet.Ranges.*
 import com.github.pambrose.Units.Companion.toUnit
@@ -30,8 +31,6 @@ import com.github.pambrose.User.Companion.toUser
 import com.google.api.client.auth.oauth2.Credential
 import mu.KLogging
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.util.*
 import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
@@ -49,10 +48,10 @@ class TradingSheet(private val ssId: String, credential: Credential) {
     measureTimedValue {
       service.query(ssId, UsersRange.name) {
         User(this[0] as String, this[1] as String, this[2] as String, this[3] as String)
-      }
+      }.sortedWith(compareBy { it.fullName })
     }.let {
       logger.info { "Fetched users: ${it.duration}" }
-      it.value.sortedWith(compareBy { it.fullName })
+      it.value
     }
 
   val units get() = ServiceCache.units { fetchUnits() }
@@ -61,10 +60,10 @@ class TradingSheet(private val ssId: String, credential: Credential) {
 
   private fun fetchUnits() =
     measureTimedValue {
-      service.query(ssId, UnitsRange.name) { (this[0] as String).toUnit() }
+      service.query(ssId, UnitsRange.name) { (this[0] as String).toUnit() }.sortedWith(compareBy { it.desc })
     }.let {
       logger.info { "Fetched units: ${it.duration}" }
-      it.value.sortedWith(compareBy { it.desc })
+      it.value
     }
 
   val allocations
@@ -82,14 +81,12 @@ class TradingSheet(private val ssId: String, credential: Credential) {
         it.value
       }
 
-  val formatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss", Locale.ENGLISH)
-
   private val halfTrades
     get() =
       measureTimedValue {
         service.query(ssId, TradesRange.name) {
           if (size == 7) {
-            val date = LocalDateTime.parse(this[0] as String, formatter)
+            val date = LocalDateTime.parse(this[0] as String, inputFormatter)
             val buyer = (this[1] as String).toUser(users)
             val buyerAmount = (this[2] as String).toInt()
             val buyerUnit = (this[3] as String).toUnit()
@@ -117,7 +114,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
       measureTimedValue {
         service.query(ssId, TradesRange.name) {
           if (size == 7) {
-            val date = LocalDateTime.parse(this[0] as String, formatter)
+            val date = LocalDateTime.parse(this[0] as String, inputFormatter)
             val buyer = (this[1] as String).toUser(users)
             val buyerAmount = (this[2] as String).toInt()
             val buyerUnit = (this[3] as String).toUnit()

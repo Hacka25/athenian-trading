@@ -44,7 +44,7 @@ object TradingServer : KLogging() {
 
   private val startTime = TimeSource.Monotonic.markNow()
   val serverSessionId = randomId(10)
-  val timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
+  val timeStamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("M/d/y H:m:ss"))
   val upTime get() = startTime.elapsedNow()
   val baseUrl = BASE_URL.getEnv("http://localhost:8080")
   val spreadsheetId = SPREADSHEET_ID.getEnv("1hrY-aJXVx2bpyT5K98GQERHAhz_CeQQoM3x7ITpg9e4")

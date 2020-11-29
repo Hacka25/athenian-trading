@@ -42,12 +42,14 @@ import mu.KLogging
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.format.DateTimeFormatter
+import java.util.*
 
 typealias PipelineCall = PipelineContext<Unit, ApplicationCall>
 
 object PageUtils : KLogging() {
 
-  val outputFormatter = DateTimeFormatter.ofPattern("E h:mm a")
+  val inputFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss", Locale.ENGLISH)
+  val outputFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("E h:mm a")
 
   const val RECORD_TO_SHEET = "recordToSheet"
 
@@ -138,7 +140,6 @@ object PageUtils : KLogging() {
       }
       li { a { href = ALLOCATIONS.asPath(); +"Allocations" } }
       li { a { href = TRANSACTIONS.asPath(); +"Transactions" } }
-      //li { a { href = RANDOM_TRADE.asPath(); +"Add random trade" } }
       li {
         a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=false"; +"Balances" }
         rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
