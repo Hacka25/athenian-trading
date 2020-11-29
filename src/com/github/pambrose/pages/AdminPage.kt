@@ -33,6 +33,7 @@ import com.github.pambrose.pages.DIVS.SPACED_TABLE
 import com.github.pambrose.queryParam
 import io.ktor.locations.*
 import kotlinx.html.*
+import kotlinx.html.Entities.nbsp
 
 object AdminPage {
 
@@ -93,6 +94,7 @@ object AdminPage {
           homeLink()
           h3 { +"Allocations" }
           ts.allocations
+            .sortedWith(compareBy { it.fullName })
             .also { tradeSides ->
               table(classes = SPACED_TABLE.name) {
                 tradeSides.forEach {
@@ -141,24 +143,19 @@ object AdminPage {
                 ts.writeBalancesToSpreadsheet(map)
             }
             .forEach { row ->
-              val nameList = mutableListOf<String>()
-              row.value
-                .sortedWith(compareBy { it.unit.desc })
-                .forEach {
-                  val username = row.key.username
-                  div {
-                    if (username !in nameList) {
-                      style = "padding-left:1em;padding-bottom:10px"
-                      b { +row.key.longName }
+              h4 { +row.key.longName }
+              table {
+                style = "padding-left:1em;"
+                row.value
+                  .sortedWith(compareBy { it.unit.desc })
+                  .forEach {
+                    tr {
+                      td { style = "padding-right:5px;text-align:right;"; +it.amount.toString() }
+                      td { +it.unit.toString() }
                     }
                   }
-                  div {
-                    style = "padding-left:2em;"
-                    +"$it"
-                  }
-                  nameList += username
-                }
-              div { rawHtml(Entities.nbsp.text) }
+              }
+              div { rawHtml(nbsp.text) }
             }
         }
 

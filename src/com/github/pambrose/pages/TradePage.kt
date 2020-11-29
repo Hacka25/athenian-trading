@@ -83,8 +83,13 @@ object TradePage {
               ?.also {
                 h3 { +"Balance for ${user.longName}" }
                 table {
-                  style = "padding-left:2em;"
-                  it.sortedWith(compareBy { it.unit.desc }).forEach { tr { td { +"$it" } } }
+                  style = "padding-left:1em;"
+                  it.sortedWith(compareBy { it.unit.desc }).forEach {
+                    tr {
+                      td { style = "padding-right:5px;text-align:right;"; +it.amount.toString() }
+                      td { +it.unit.toString() }
+                    }
+                  }
                 }
               } ?: throw InvalidRequestException("Missing name: $username")
           }
