@@ -37,6 +37,7 @@ import io.ktor.response.*
 import io.ktor.util.pipeline.*
 import kotlinx.css.CSSBuilder
 import kotlinx.html.*
+import kotlinx.html.Entities.nbsp
 import kotlinx.html.stream.createHTML
 import mu.KLogging
 import java.io.PrintWriter
@@ -103,7 +104,7 @@ object PageUtils : KLogging() {
   fun BODY.pageTitle() = h2 {
     span {
       img { style = "width:1em;height:1em;"; src = pathOf(STATIC_ROOT, "athenian.png") }
-      rawHtml(Entities.nbsp.text)
+      rawHtml(nbsp.text)
       +APP_TITLE
     }
   }
@@ -130,19 +131,19 @@ object PageUtils : KLogging() {
       }
       li {
         a { href = USERS.asPath(); +"Users" }
-        rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
         a { href = REFRESH_USERS.asPath(); +"(Refresh)" }
       }
       li {
         a { href = UNITS.asPath(); +"Units" }
-        rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
         a { href = REFRESH_UNITS.asPath(); +"(Refresh)" }
       }
       li { a { href = ALLOCATIONS.asPath(); +"Allocations" } }
-      li { a { href = TRANSACTIONS.asPath(); +"Transactions" } }
+      li { a { href = ALL_TRANSACTIONS.asPath(); +"Transactions" } }
       li {
         a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=false"; +"Balances" }
-        rawHtml(Entities.nbsp.text); rawHtml(Entities.nbsp.text)
+        rawHtml(nbsp.text); rawHtml(nbsp.text)
         a { href = "${BALANCES.asPath()}?$RECORD_TO_SHEET=true"; +"(Record to Spreadsheet)" }
       }
     }
@@ -151,8 +152,8 @@ object PageUtils : KLogging() {
   fun BODY.tradeChoices() {
     ul {
       li { a { href = LOGOUT; +"Logout" } }
-      li { a { href = BALANCE.asPath(); +"Balance" } }
       li { a { href = USER_TRANSACTIONS.asPath(); +"Transactions" } }
+      li { a { href = BALANCE.asPath(); +"Balance" } }
       li { a { href = ADD.asPath(); +"Add a trade" } }
     }
   }

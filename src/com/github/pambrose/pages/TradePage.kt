@@ -36,6 +36,7 @@ import io.ktor.application.*
 import io.ktor.locations.*
 import io.ktor.request.*
 import kotlinx.html.*
+import kotlinx.html.Entities.nbsp
 
 
 object TradePage {
@@ -215,7 +216,7 @@ object TradePage {
           }
         }
 
-        tr { td { rawHtml(Entities.nbsp.text) } }
+        tr { td { rawHtml(nbsp.text) } }
 
         tr {
           td { b { style = "font-size:20px;"; +"Seller:" } }
@@ -248,7 +249,7 @@ object TradePage {
           }
         }
 
-        tr { td { rawHtml(Entities.nbsp.text) } }
+        tr { td { rawHtml(nbsp.text) } }
 
         tr {
           td {}

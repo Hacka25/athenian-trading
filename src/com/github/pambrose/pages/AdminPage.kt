@@ -39,7 +39,7 @@ object AdminPage {
 
   enum class AdminActions {
     USERS, REFRESH_USERS, UNITS,
-    REFRESH_UNITS, ALLOCATIONS, TRANSACTIONS,
+    REFRESH_UNITS, ALLOCATIONS, ALL_TRANSACTIONS,
     RANDOM_TRADE, CLEAR_TRADES, BALANCES;
 
     fun asPath() = "$ADMIN/${name.toLowerCase()}"
@@ -108,7 +108,7 @@ object AdminPage {
             }
         }
 
-        TRANSACTIONS -> {
+        ALL_TRANSACTIONS -> {
           homeLink()
           h3 { +"Transactions" }
           table {
