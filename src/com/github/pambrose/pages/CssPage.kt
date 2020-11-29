@@ -31,7 +31,7 @@ object CssPage {
 
   suspend fun PipelineCall.cssPage() =
     call.respondCss {
-      rule("html, body") {
+      rule("html, body, table") {
         fontSize = 24.px
         fontFamily = "verdana, arial, helvetica, sans-serif"
       }

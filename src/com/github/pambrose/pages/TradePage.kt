@@ -81,23 +81,18 @@ object TradePage {
               .map { it.value }
               .firstOrNull()
               ?.also {
-                div {
-                  +"Balance for ${user.longName}"
-                }
+                h3 { +"Balance for ${user.longName}" }
                 table {
-                  style = "padding-left:2em;padding-top:10px;"
+                  style = "padding-left:2em;"
                   it.sortedWith(compareBy { it.unit.desc }).forEach { tr { td { +"$it" } } }
                 }
               } ?: throw InvalidRequestException("Missing name: $username")
           }
 
           USER_TRANSACTIONS -> {
-            div {
-              +"Transactions for ${user.longName}"
-            }
+            h3 { +"Transactions for ${user.longName}" }
             table {
-              style = "padding-left:2em;padding-top:10px;"
-
+              style = "padding-left:2em;font-size:20px"
               ts.transactions()
                 .filter { it.buyer.username == username || it.seller.username == username }
                 .forEach {
