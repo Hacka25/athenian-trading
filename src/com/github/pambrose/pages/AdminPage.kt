@@ -69,7 +69,7 @@ object AdminPage {
             table {
               ts.refreshUsers().forEach {
                 tr {
-                  td { b { +it.username } }
+                  td { +it.username }
                   td { +it.longName }
                 }
               }
