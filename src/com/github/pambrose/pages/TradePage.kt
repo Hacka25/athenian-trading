@@ -92,13 +92,13 @@ object TradePage {
           USER_TRANSACTIONS -> {
             h3 { +"Transactions for ${user.longName}" }
             table {
-              style = "padding-left:2em;font-size:20px"
+              style = "font-size:20px"
               ts.transactions()
                 .filter { it.buyer.username == username || it.seller.username == username }
                 .forEach {
                   tr {
                     td {
-                      style = "padding-right:1em;"
+                      style = "padding-right:10px;"
                       if (it.allocation)
                         +"Allocation"
                       else

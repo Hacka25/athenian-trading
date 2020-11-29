@@ -109,12 +109,13 @@ object AdminPage {
           homeLink()
           h3 { +"Transactions" }
           table {
+            style = "font-size:20px"
             ts.transactions()
               .filterNot { it.allocation }
               .forEach {
                 tr {
                   td {
-                    style = "padding-right:1em;"
+                    style = "padding-right:10px;"
                     if (it.allocation)
                       +"Allocation"
                     else
