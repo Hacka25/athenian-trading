@@ -56,7 +56,7 @@ object PageUtils : KLogging() {
 
   fun HTMLTag.rawHtml(html: String) = unsafe { raw(html) }
 
-  fun tradingSheet() = TradingSheet(spreadsheetId, googleCredential.get() ?: throw MissingCredential("No credential"))
+  fun tradingSheet() = TradingSheet(spreadsheetId, googleCredential.get() ?: error("No credential"))
 
   fun PipelineCall.authorizedUser(reset: Boolean = false): User {
     val auth = call.request.header(HttpHeaders.Authorization)?.removePrefix("Basic ") ?: ""
@@ -67,7 +67,7 @@ object PageUtils : KLogging() {
           authMap[auth] = it.first to true
         }
         it.first
-      } ?: throw InvalidRequestException("Unrecognized user")
+      } ?: error("Unrecognized user")
   }
 
   fun page(addHomeLink: Boolean = true, block: BODY.() -> Unit) =

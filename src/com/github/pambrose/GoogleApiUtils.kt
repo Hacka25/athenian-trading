@@ -50,7 +50,7 @@ object GoogleApiUtils {
       }
 
   fun authorizationCodeFlow(varName: String, scopes: List<String>): GoogleAuthorizationCodeFlow {
-    val strReader = StringReader(System.getenv(varName) ?: throw MissingCredential("$varName not defined"))
+    val strReader = StringReader(System.getenv(varName) ?: error("$varName not defined"))
     val clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, strReader)
     return GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, scopes)
       .setDataStoreFactory(FileDataStoreFactory(File(TOKENS_DIRECTORY_PATH)))
@@ -61,19 +61,19 @@ object GoogleApiUtils {
   fun sheetsService(applicationName: String, credential: Credential) =
     Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential)
       .setApplicationName(applicationName)
-      .build() ?: throw GoogleApiException("Null sheets service")
+      .build() ?: error("Null sheets service")
 
   fun googleAuthPageUrl(flow: GoogleAuthorizationCodeFlow, state: String, redirectUrl: String) =
     flow.newAuthorizationUrl()
       .setState(state)
       .setRedirectUri(redirectUrl)
-      .build() ?: throw GoogleApiException("Null auth url")
+      .build() ?: error("Null auth url")
 
   fun <R> Sheets.query(ssId: String, range: String, mapper: List<Any>.() -> R) =
     spreadsheets().values().get(ssId, range).execute()
       ?.run {
         getValues()?.map { mapper(it) } ?: emptyList()
-      } ?: throw GoogleApiException("Null get response")
+      } ?: error("Null get response")
 
   fun Sheets.append(
     ssId: String,
@@ -86,11 +86,11 @@ object GoogleApiUtils {
       .also {
         it.valueInputOption = valueInputOption.name
         it.insertDataOption = insertDataOption.name
-      }.execute() ?: throw GoogleApiException("Null append response")
+      }.execute() ?: error("Null append response")
 
   fun Sheets.clear(ssId: String, range: String) =
     spreadsheets().values().clear(ssId, range, ClearValuesRequest()).execute()
-      ?: throw GoogleApiException("Null clear response")
+      ?: error("Null clear response")
 }
 
 enum class ValueInputOption { USER_ENTERED, RAW }

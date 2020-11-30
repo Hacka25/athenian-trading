@@ -98,7 +98,7 @@ object Installs : KLogging() {
             val str = "${cred.name}:${cred.password}"
             val encodedString: String = Base64.getEncoder().encodeToString(str.toByteArray())
             if (authMap.containsKey(encodedString)) {
-              val (_, block) = authMap[encodedString] ?: throw InvalidRequestException("Auth problems")
+              val (_, block) = authMap[encodedString] ?: error("authMap missing value")
               if (block) {
                 logger.info { "Denied login for ${user.username}" }
                 authMap[encodedString] = user to false

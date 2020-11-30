@@ -85,8 +85,3 @@ object TradingServer : KLogging() {
     embeddedServer(CIO, environment).start(wait = true)
   }
 }
-
-class MissingCredential(msg: String) : Exception(msg)
-class GoogleApiException(msg: String) : Exception(msg)
-class InvalidRequestException(msg: String) : Exception(msg)
-class InvalidConfigurationException(msg: String) : Exception(msg)

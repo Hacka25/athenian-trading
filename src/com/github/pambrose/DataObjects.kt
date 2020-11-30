@@ -31,7 +31,7 @@ data class User(
 
   companion object {
     fun String.toUser(users: List<User>) =
-      users.firstOrNull { it.username == this } ?: throw InvalidConfigurationException("Missing user: $this")
+      users.firstOrNull { it.username == this } ?: error("Missing user: $this")
   }
 }
 

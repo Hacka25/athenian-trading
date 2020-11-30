@@ -74,7 +74,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
             HalfTrade((this[0] as String).toUser(users),
                       UnitAmount((this[1] as String).toInt(), (this[2] as String).toUnit()))
           else
-            throw InvalidConfigurationException("Missing data in Allocations")
+            error("Three columns expected in Allocations. Read row with $size columns")
         }
       }.let {
         logger.info { "Fetched Allocations: ${it.duration}" }
@@ -100,8 +100,7 @@ class TradingSheet(private val ssId: String, credential: Credential) {
               HalfTrade(seller, UnitAmount(-1 * sellerAmount, sellerUnit), date)
             )
           } else {
-            logger.error { "Missing trade data" }
-            emptyList()
+            error("Seven columns expected in Trades. Read row with $size columns")
           }
         }.flatten()
       }.let {

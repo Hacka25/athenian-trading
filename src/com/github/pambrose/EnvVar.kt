@@ -37,5 +37,5 @@ enum class EnvVar {
 
   fun getEnv(default: Int) = System.getenv(name)?.toInt() ?: default
 
-  fun getRequiredEnv() = getEnvOrNull() ?: throw InvalidConfigurationException("Missing $name value")
+  fun getRequiredEnv() = getEnvOrNull() ?: error("Missing $name value")
 }

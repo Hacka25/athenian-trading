@@ -92,7 +92,7 @@ object TradePage {
                     }
                   }
                 }
-              } ?: throw InvalidRequestException("Missing name: $username")
+              } ?: error("Missing name: $username")
           }
 
           USER_TRANSACTIONS -> {
@@ -128,20 +128,14 @@ object TradePage {
     val params = call.receiveParameters()
     val ts = tradingSheet()
     val buyer =
-      HalfTrade(ts.users.firstOrNull { it.username == params[BUYER_NAME.name] }
-                  ?: throw InvalidRequestException("Buyer user"),
-                UnitAmount(params[BUYER_AMOUNT.name]?.toInt()
-                             ?: throw InvalidRequestException("Buyer amount"),
-                           ts.units.firstOrNull { it.desc == params[BUYER_UNIT.name] }
-                             ?: throw InvalidRequestException(
-                               "Buyer unit")))
+      HalfTrade(ts.users.firstOrNull { it.username == params[BUYER_NAME.name] } ?: error("Invalid buyer"),
+                UnitAmount(params[BUYER_AMOUNT.name]?.toInt() ?: error("Invalid buyer amount"),
+                           ts.units.firstOrNull { it.desc == params[BUYER_UNIT.name] } ?: error("Invalid buyer unit")))
     val seller =
-      HalfTrade(ts.users.firstOrNull { it.username == params[SELLER_NAME.name] }
-                  ?: throw InvalidRequestException("Seller user"),
-                UnitAmount(params[SELLER_AMOUNT.name]?.toInt()
-                             ?: throw InvalidRequestException("Seller amount"),
+      HalfTrade(ts.users.firstOrNull { it.username == params[SELLER_NAME.name] } ?: error("Invalid seller"),
+                UnitAmount(params[SELLER_AMOUNT.name]?.toInt() ?: error("Invalid seller amount"),
                            ts.units.firstOrNull { it.desc == params[SELLER_UNIT.name] }
-                             ?: throw InvalidRequestException("Seller unit")))
+                             ?: error("Invalid seller unit")))
 
     val balances = ts.calculateBalances()
     val buyerUnitAmount = balances[buyer.user]?.firstOrNull { it.unit == buyer.unit }
