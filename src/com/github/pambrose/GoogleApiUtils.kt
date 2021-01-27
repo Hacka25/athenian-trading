@@ -21,7 +21,7 @@ import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.jackson2.JacksonFactory
+import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.model.ClearValuesRequest
@@ -35,7 +35,7 @@ import java.time.temporal.ChronoUnit
 
 object GoogleApiUtils {
   private const val TOKENS_DIRECTORY_PATH = "tokens"
-  private val JSON_FACTORY = JacksonFactory.getDefaultInstance()
+  private val JSON_FACTORY = GsonFactory()
   private val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
 
   private const val secsInDay = 24 * 60 * 60
