@@ -230,7 +230,7 @@ object TradePage {
         }
       }
 
-      div { rawHtml(nbsp.text) }
+      //div { rawHtml(nbsp.text) }
     }
 
     div {
