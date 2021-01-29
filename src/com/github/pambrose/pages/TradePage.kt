@@ -230,17 +230,17 @@ object TradePage {
         }
       }
 
-      //div { rawHtml(nbsp.text) }
-    }
+      div { rawHtml(nbsp.text) }
 
-    div {
-      submitInput {
-        style =
-          "font-size:20px; font-weight:bold; background-color:white; border:1px solid black; border-radius: 5px; padding: 0px 7px; cursor: pointer; height:30; width:100"
+      div {
+        submitInput {
+          style =
+            "font-size:20px; font-weight:bold; background-color:white; border:1px solid black; border-radius: 5px; padding: 0px 7px; cursor: pointer; height:30; width:100"
+        }
       }
-    }
 
-    div { rawHtml(nbsp.text) }
+      div { rawHtml(nbsp.text) }
+    }
   }
 }
 
