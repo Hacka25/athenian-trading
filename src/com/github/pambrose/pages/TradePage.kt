@@ -180,82 +180,67 @@ object TradePage {
       action = "$TRADE/$ADD"
       method = FormMethod.post
 
-      table {
-        tr {
-          td { b { style = "font-size:20px;"; +"Buyer:" } }
-          td {
-            select {
-              name = BUYER_NAME.name
-              buyer.username.also {
-                option {
-                  value = it
-                  +it.toUser(ts.users).longName
-                }
-              }
-            }
-          }
-          td {
-            numberInput {
-              style = "width:$width;"
-              name = BUYER_AMOUNT.name
-              value = buyer.amount.toString()
-            }
-          }
-          td {
-            select {
-              name = BUYER_UNIT.name
-              ts.units.map { it.desc }
-                .forEach { option { value = it; selected = (it == buyer.desc); +it } }
-            }
-          }
-        }
-
-        tr { td { rawHtml(nbsp.text) } }
-
-        tr {
-          td { b { style = "font-size:20px;"; +"Seller:" } }
-          td {
-            select {
-              name = SELLER_NAME.name
-              (ts.users - buyer.user).map { it.username }
-                .forEach { username ->
-                  option {
-                    value = username
-                    selected = (username == seller.username)
-                    +username.toUser(ts.users).longName
-                  }
-                }
-            }
-          }
-          td {
-            numberInput {
-              style = "width:$width;"
-              name = SELLER_AMOUNT.name
-              value = seller.amount.toString()
-            }
-          }
-          td {
-            select {
-              name = SELLER_UNIT.name
-              ts.units.map { it.desc }
-                .forEach { option { value = it; selected = (it == seller.desc); +it } }
-            }
-          }
-        }
-
-        tr { td { rawHtml(nbsp.text) } }
-
-        tr {
-          td {}
-          td {
-            submitInput {
-              style =
-                "font-size:20px; font-weight:bold; background-color:white; border:1px solid black; border-radius: 5px; padding: 0px 7px; cursor: pointer; height:30; width:100"
-            }
-          }
+      div {
+        select {
+          name = BUYER_NAME.name
+          buyer.username.also { option { value = it; +it.toUser(ts.users).longName } }
         }
       }
+
+      div {
+        div { rawHtml(nbsp.text) }
+        b { style = "font-size:18px;"; +"traded: " }
+        numberInput { style = "width:$width;"; name = BUYER_AMOUNT.name; value = buyer.amount.toString() }
+
+        select {
+          name = BUYER_UNIT.name
+          ts.units.map { it.desc }.forEach { option { value = it; selected = (it == buyer.desc); +it } }
+        }
+      }
+
+      div { rawHtml(nbsp.text) }
+
+      div {
+        b { style = "font-size:18px;"; +"in exchange for: " }
+        numberInput {
+          style = "width:$width;"
+          name = SELLER_AMOUNT.name
+          value = seller.amount.toString()
+        }
+
+        select {
+          name = SELLER_UNIT.name
+          ts.units.map { it.desc }
+            .forEach { option { value = it; selected = (it == seller.desc); +it } }
+        }
+
+        div { rawHtml(nbsp.text) }
+
+        b { style = "font-size:18px;"; +"with: " }
+        select {
+          name = SELLER_NAME.name
+          (ts.users - buyer.user).map { it.username }
+            .forEach { username ->
+              option {
+                value = username
+                selected = (username == seller.username)
+                +username.toUser(ts.users).longName
+              }
+            }
+        }
+      }
+
+      div { rawHtml(nbsp.text) }
     }
+
+    div {
+      submitInput {
+        style =
+          "font-size:20px; font-weight:bold; background-color:white; border:1px solid black; border-radius: 5px; padding: 0px 7px; cursor: pointer; height:30; width:100"
+      }
+    }
+
+    div { rawHtml(nbsp.text) }
   }
 }
 
