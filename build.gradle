@@ -8,10 +8,11 @@ plugins {
 }
 
 repositories {
-    maven { url 'https://kotlin.bintray.com/ktor' }
-    maven { url 'https://kotlin.bintray.com/kotlinx' }
-    maven { url 'https://kotlin.bintray.com/kotlin-js-wrappers' }
-    maven { url 'https://maven-central.storage-download.googleapis.com/repos/central/data/' }
+    maven { url = 'https://kotlin.bintray.com/ktor' }
+    maven { url = 'https://kotlin.bintray.com/kotlinx' }
+    maven { url = 'https://kotlin.bintray.com/kotlin-js-wrappers' }
+    maven { url = 'https://maven-central.storage-download.googleapis.com/repos/central/data/' }
+    mavenLocal()
     jcenter()
     maven { url = 'https://jitpack.io' }
 }
@@ -39,14 +40,8 @@ sourceSets {
     test.resources.srcDirs = ['testresources']
 }
 
-repositories {
-    mavenLocal()
-    jcenter()
-    maven { url 'https://kotlin.bintray.com/ktor' }
-}
-
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version"
 
