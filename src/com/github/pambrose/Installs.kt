@@ -30,15 +30,22 @@ import com.github.pambrose.common.features.HerokuHttpsRedirect
 import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNotNull
 import com.github.pambrose.common.util.simpleClassName
-import io.ktor.application.*
-import io.ktor.auth.*
-import io.ktor.features.*
 import io.ktor.http.*
-import io.ktor.locations.*
-import io.ktor.request.*
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.locations.*
+import io.ktor.server.logging.*
+import io.ktor.server.plugins.*
+import io.ktor.server.plugins.callloging.*
+import io.ktor.server.plugins.compression.*
+import io.ktor.server.plugins.defaultheaders.*
+import io.ktor.server.plugins.forwardedheaders.*
+import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
 import mu.KLogging
 import org.slf4j.event.Level
 import java.util.*
+import kotlin.collections.set
 
 object Installs : KLogging() {
 
@@ -85,7 +92,7 @@ object Installs : KLogging() {
       basic(name = adminAuth) {
         realm = "Admin Auth"
         validate { cred ->
-          if (cred.name.toLowerCase() == "admin" && cred.password.toLowerCase() == "admin") UserIdPrincipal(cred.name) else null
+          if (cred.name.lowercase() == "admin" && cred.password.lowercase() == "admin") UserIdPrincipal(cred.name) else null
         }
       }
 
@@ -118,16 +125,16 @@ object Installs : KLogging() {
     }
 
     install(StatusPages) {
-      exception<Throwable> { cause ->
+      exception<Throwable> { call, cause ->
         logger.info(cause) { "Throwable caught: ${cause.simpleClassName}" }
-        respondWith {
+        call.respondWith {
           stackTracePage(cause)
         }
       }
 
-      status(HttpStatusCode.NotFound) {
+      status(HttpStatusCode.NotFound) { call, status ->
         //call.respond(TextContent("${it.value} ${it.description}", Plain.withCharset(UTF_8), it))
-        respondWith {
+        call.respondWith {
           page(false) {
             rootChoices("Invalid URL")
           }
@@ -137,7 +144,7 @@ object Installs : KLogging() {
 
     if (FORWARDED_ENABLED.getEnv(default = false)) {
       logger.info { "Enabling ForwardedHeaderSupport" }
-      install(ForwardedHeaderSupport)
+      install(ForwardedHeaders)
     } else {
       logger.info { "Not enabling ForwardedHeaderSupport" }
     }
@@ -145,7 +152,7 @@ object Installs : KLogging() {
 
     if (XFORWARDED_ENABLED.getEnv(false)) {
       logger.info { "Enabling XForwardedHeaderSupport" }
-      install(XForwardedHeaderSupport)
+      install(XForwardedHeaders)
     } else {
       logger.info { "Not enabling XForwardedHeaderSupport" }
     }

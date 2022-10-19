@@ -32,9 +32,9 @@ import com.github.pambrose.common.response.respondWith
 import com.github.pambrose.common.util.isNull
 import com.github.pambrose.pages.TradePage.ParamNames.*
 import com.github.pambrose.pages.TradePage.TradeActions.*
-import io.ktor.application.*
-import io.ktor.locations.*
-import io.ktor.request.*
+import io.ktor.server.application.*
+import io.ktor.server.locations.*
+import io.ktor.server.request.*
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
 
@@ -44,7 +44,7 @@ object TradePage {
   enum class TradeActions {
     ADD, BALANCE, USER_TRANSACTIONS;
 
-    fun asPath() = "$TRADE/${name.toLowerCase()}"
+    fun asPath() = "$TRADE/${name.lowercase()}"
   }
 
   enum class ParamNames { SELLER_NAME, SELLER_AMOUNT, SELLER_UNIT, BUYER_NAME, BUYER_AMOUNT, BUYER_UNIT }
@@ -58,7 +58,7 @@ object TradePage {
         val user = authorizedUser(false)
         val username = user.username
         val ts = tradingSheet()
-        when (enumValueOf(arg.action.toUpperCase()) as TradeActions) {
+        when (enumValueOf(arg.action.uppercase()) as TradeActions) {
           ADD -> {
             div {
               val params = call.request.queryParameters

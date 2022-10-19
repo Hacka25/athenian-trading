@@ -20,7 +20,7 @@ package com.github.pambrose.pages
 import com.github.pambrose.PipelineCall
 import com.github.pambrose.pages.DIVS.SPACED_TABLE
 import com.github.pambrose.respondCss
-import io.ktor.application.*
+import io.ktor.server.application.*
 import kotlinx.css.*
 
 enum class DIVS {

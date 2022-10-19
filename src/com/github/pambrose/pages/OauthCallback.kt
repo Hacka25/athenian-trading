@@ -26,7 +26,7 @@ import com.github.pambrose.TradingServer.googleCredential
 import com.github.pambrose.TradingServer.userId
 import com.github.pambrose.common.response.redirectTo
 import com.google.api.services.sheets.v4.SheetsScopes
-import io.ktor.application.*
+import io.ktor.server.application.*
 
 object OauthCallback {
 

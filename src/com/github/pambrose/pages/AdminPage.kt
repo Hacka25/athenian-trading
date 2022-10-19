@@ -31,7 +31,7 @@ import com.github.pambrose.UnitAmount
 import com.github.pambrose.pages.AdminPage.AdminActions.*
 import com.github.pambrose.pages.DIVS.SPACED_TABLE
 import com.github.pambrose.queryParam
-import io.ktor.locations.*
+import io.ktor.server.locations.*
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
 
@@ -42,14 +42,14 @@ object AdminPage {
     REFRESH_UNITS, ALLOCATIONS, ALL_TRANSACTIONS,
     RANDOM_TRADE, CLEAR_TRADES, BALANCES;
 
-    fun asPath() = "$ADMIN/${name.toLowerCase()}"
+    fun asPath() = "$ADMIN/${name.lowercase()}"
   }
 
   fun PipelineCall.adminPage(arg: Admin) =
     page {
       adminChoices()
       val ts = tradingSheet()
-      when (enumValueOf(arg.action.toUpperCase()) as AdminActions) {
+      when (enumValueOf(arg.action.uppercase()) as AdminActions) {
         USERS -> {
           homeLink()
           h3 { +"Users" }

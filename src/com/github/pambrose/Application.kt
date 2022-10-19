@@ -20,7 +20,7 @@ package com.github.pambrose
 import com.github.pambrose.Installs.installs
 import com.github.pambrose.Routes.routes
 import com.github.pambrose.TradingServer.baseUrl
-import io.ktor.application.*
+import io.ktor.server.application.*
 
 fun Application.module(testing: Boolean = false) {
   installs(!baseUrl.contains("localhost"))

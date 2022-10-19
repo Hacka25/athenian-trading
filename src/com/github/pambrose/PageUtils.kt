@@ -30,12 +30,12 @@ import com.github.pambrose.TradingServer.spreadsheetId
 import com.github.pambrose.common.util.pathOf
 import com.github.pambrose.pages.AdminPage.AdminActions.*
 import com.github.pambrose.pages.TradePage.TradeActions.*
-import io.ktor.application.*
 import io.ktor.http.*
-import io.ktor.request.*
-import io.ktor.response.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.util.pipeline.*
-import kotlinx.css.CSSBuilder
+import kotlinx.css.CssBuilder
 import kotlinx.html.*
 import kotlinx.html.Entities.nbsp
 import kotlinx.html.stream.createHTML
@@ -161,18 +161,17 @@ object PageUtils : KLogging() {
   fun getResourceAsText(path: String) = PageUtils::class.java.getResource(path).readText()
 }
 
-suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
-  this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
+suspend inline fun ApplicationCall.respondCss(builder: CssBuilder.() -> Unit) {
+  this.respondText(CssBuilder().apply(builder).toString(), ContentType.Text.CSS)
 }
-
 //fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
 //  style(type = ContentType.Text.CSS.toString()) {
 //    +CSSBuilder().apply(builder).toString()
 //  }
 //}
 
-fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
-  this.style = CSSBuilder().apply(builder).toString().trim()
+fun CommonAttributeGroupFacade.style(builder: CssBuilder.() -> Unit) {
+  this.style = CssBuilder().apply(builder).toString().trim()
 }
 
 fun PipelineCall.queryParam(key: String, default: String = "") = call.request.queryParameters[key] ?: default
